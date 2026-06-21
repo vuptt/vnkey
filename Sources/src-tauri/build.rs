@@ -47,6 +47,7 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=Carbon");
         println!("cargo:rustc-link-lib=framework=Cocoa");
         println!("cargo:rustc-link-lib=framework=AppKit");
+        println!("cargo:rustc-link-lib=framework=QuickLook");
     }
 
     tauri_build::build();

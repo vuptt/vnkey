@@ -8,11 +8,13 @@
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 #import <Foundation/Foundation.h>
+#import <QuickLook/QuickLook.h>
 #import "Engine.h"
 extern "C" {
     void rust_onInputMethodChanged(int val);
     void rust_onCodeTableChanged(int val);
     void rust_onQuickConvert();
+    void rust_onToggleClipboardPicker();
 }
 
 #define FRONT_APP _frontMostApp
@@ -44,7 +46,13 @@ NSDictionary *keyStringToKeyCodeMap = @{
     @",": @43, @"<": @43, @".": @47, @">": @47, @"/": @44, @"?": @44
 };
 
-// Removed AppDelegate and ViewController dependencies
+int clipboardHotKey = 0x76000109; // Default: Ctrl + V
+bool clipboardHistoryEnabled = true;
+
+static CFMachPortRef      eventTap = NULL;
+static CGEventMask        eventMask = 0;
+static CFRunLoopSourceRef runLoopSource = NULL;
+static bool               _isInited = false;
 
 extern "C" {
     extern int vSendKeyStepByStep;
@@ -169,7 +177,7 @@ extern "C" {
         CFArrayRef languages = (CFArrayRef)TISGetInputSourceProperty(inputSource, kTISPropertyInputSourceLanguages);
         if (languages != NULL && CFArrayGetCount(languages) > 0) {
             CFStringRef language = (CFStringRef)CFArrayGetValueAtIndex(languages, 0);
-            _currentInputSourceIsEnglish = [(__bridge NSString *)language isLike:@"en"];
+            _currentInputSourceIsEnglish = [(__bridge NSString *)language hasPrefix:@"en"];
         }
         CFRelease(inputSource);
     }
@@ -632,6 +640,12 @@ extern "C" {
      */
     CGEventRef VNKeyCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
         (void)refcon;
+        if (type == kCGEventTapDisabledByTimeout || type == kCGEventTapDisabledByUserInput) {
+            if (eventTap) {
+                CGEventTapEnable(eventTap, true);
+            }
+            return event;
+        }
         //dont handle my event
         if (CGEventGetIntegerValueField(event, kCGEventSourceStateID) == CGEventSourceGetSourceStateID(myEventSource)) {
             return event;
@@ -648,6 +662,13 @@ extern "C" {
         //switch language shortcut; convert hotkey
         if (type == kCGEventKeyDown) {
             if (!vDisableHotkeys) {
+                if (clipboardHistoryEnabled && GET_SWITCH_KEY(clipboardHotKey) == _keycode && checkHotKey(clipboardHotKey, GET_SWITCH_KEY(clipboardHotKey) != 0xFE)) {
+                    rust_onToggleClipboardPicker();
+                    _lastFlag = 0;
+                    _hasJustUsedHotKey = true;
+                    return NULL;
+                }
+
                 if (GET_SWITCH_KEY(vSwitchKeyStatus) != _keycode && GET_SWITCH_KEY(convertToolHotKey) != _keycode) {
                     _lastFlag = 0;
                 } else {
@@ -819,10 +840,6 @@ extern "C" {
         
         return event;
     }
-    static CFMachPortRef      eventTap = NULL;
-    static CGEventMask        eventMask = 0;
-    static CFRunLoopSourceRef runLoopSource = NULL;
-    static bool               _isInited = false;
 
     bool is_accessibility_granted() {
         return AXIsProcessTrusted();
@@ -1000,6 +1017,347 @@ extern "C" {
             *len = 0;
             return NULL;
         }
+    }
+
+    long macos_clipboard_get_change_count() {
+        return [[NSPasteboard generalPasteboard] changeCount];
+    }
+
+    bool macos_clipboard_is_sensitive() {
+        @autoreleasepool {
+            NSPasteboard *pb = [NSPasteboard generalPasteboard];
+            NSArray *types = [pb types];
+            for (NSString *type in types) {
+                if ([type isEqualToString:@"org.nspasteboard.ConcealedType"] ||
+                    [type isEqualToString:@"org.nspasteboard.TransientType"] ||
+                    [type isEqualToString:@"com.agilebits.onepassword"] ||
+                    [type isEqualToString:@"com.apple.is-sensitive"]) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    char* macos_clipboard_read_text() {
+        @autoreleasepool {
+            NSString *str = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
+            if (!str) return NULL;
+            const char *utf8 = [str UTF8String];
+            return strdup(utf8);
+        }
+    }
+
+    char* macos_clipboard_read_html() {
+        @autoreleasepool {
+            NSString *str = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeHTML];
+            if (!str) return NULL;
+            const char *utf8 = [str UTF8String];
+            return strdup(utf8);
+        }
+    }
+
+    char* macos_clipboard_read_file_urls() {
+        @autoreleasepool {
+            // Read file URLs as a newline separated string of paths
+            NSArray *urls = [[NSPasteboard generalPasteboard] readObjectsForClasses:@[[NSURL class]] options:nil];
+            if (!urls || [urls count] == 0) return NULL;
+            
+            NSMutableArray *paths = [NSMutableArray array];
+            for (NSURL *url in urls) {
+                if ([url isFileURL]) {
+                    [paths addObject:[url path]];
+                }
+            }
+            if ([paths count] == 0) return NULL;
+            
+            NSString *joined = [paths componentsJoinedByString:@"\n"];
+            return strdup([joined UTF8String]);
+        }
+    }
+
+    uint8_t* macos_clipboard_get_image_png(int* len) {
+        @autoreleasepool {
+            NSPasteboard *pb = [NSPasteboard generalPasteboard];
+            
+            // Check if there are file URLs first
+            NSArray *urls = [pb readObjectsForClasses:@[[NSURL class]] options:nil];
+            if (urls && [urls count] > 0) {
+                NSURL *fileURL = urls[0];
+                if ([fileURL isFileURL]) {
+                    // Try QuickLook thumbnail
+                    NSDictionary *options = @{ (id)kQLThumbnailOptionIconModeKey: @(NO) };
+                    CGImageRef thumbnailCG = QLThumbnailImageCreate(kCFAllocatorDefault, (__bridge CFURLRef)fileURL, CGSizeMake(120, 120), (__bridge CFDictionaryRef)options);
+                    if (thumbnailCG) {
+                        NSBitmapImageRep* rep = [[NSBitmapImageRep alloc] initWithCGImage:thumbnailCG];
+                        NSData* png = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+                        CFRelease(thumbnailCG);
+                        if (png) {
+                            *len = (int)[png length];
+                            uint8_t* buf = (uint8_t*)malloc(*len);
+                            memcpy(buf, [png bytes], *len);
+                            return buf;
+                        }
+                    }
+                    
+                    // Direct image read
+                    NSString *path = [fileURL path];
+                    NSString *ext = [[path pathExtension] lowercaseString];
+                    NSArray *imgExts = @[@"png", @"jpg", @"jpeg", @"tiff", @"gif", @"heic", @"webp"];
+                    if ([imgExts containsObject:ext]) {
+                        NSData *data = [NSData dataWithContentsOfFile:path];
+                        if (data && [data length] <= 12 * 1024 * 1024) {
+                            NSBitmapImageRep *rep = [NSBitmapImageRep imageRepWithData:data];
+                            if (rep) {
+                                NSData *png = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+                                if (png) {
+                                    *len = (int)[png length];
+                                    uint8_t* buf = (uint8_t*)malloc(*len);
+                                    memcpy(buf, [png bytes], *len);
+                                    return buf;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Fallback to system icon
+                    NSImage *icon = [[NSWorkspace sharedWorkspace] iconForFile:path];
+                    if (icon) {
+                        CGImageRef iconCG = [icon CGImageForProposedRect:NULL context:nil hints:nil];
+                        NSBitmapImageRep* rep = [[NSBitmapImageRep alloc] initWithCGImage:iconCG];
+                        NSData *png = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+                        if (png) {
+                            *len = (int)[png length];
+                            uint8_t* buf = (uint8_t*)malloc(*len);
+                            memcpy(buf, [png bytes], *len);
+                            return buf;
+                        }
+                    }
+                }
+            }
+            
+            // Check direct image data in pasteboard
+            NSArray *types = [pb types];
+            NSData *imgData = nil;
+            BOOL isPNG = NO;
+            if ([types containsObject:NSPasteboardTypePNG]) {
+                imgData = [pb dataForType:NSPasteboardTypePNG];
+                isPNG = YES;
+            } else if ([types containsObject:NSPasteboardTypeTIFF]) {
+                imgData = [pb dataForType:NSPasteboardTypeTIFF];
+            }
+            
+            if (imgData && [imgData length] <= 12 * 1024 * 1024) {
+                if (isPNG) {
+                    *len = (int)[imgData length];
+                    uint8_t* buf = (uint8_t*)malloc(*len);
+                    memcpy(buf, [imgData bytes], *len);
+                    return buf;
+                } else {
+                    NSBitmapImageRep *rep = [NSBitmapImageRep imageRepWithData:imgData];
+                    if (rep) {
+                        NSData *png = [rep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+                        if (png) {
+                            *len = (int)[png length];
+                            uint8_t* buf = (uint8_t*)malloc(*len);
+                            memcpy(buf, [png bytes], *len);
+                            return buf;
+                        }
+                    }
+                }
+            }
+            
+            *len = 0;
+            return NULL;
+        }
+    }
+
+    void macos_clipboard_paste(int prev_pid, const char* text, const char* html, const char* image_file_path, const char* file_paths_joined) {
+        @autoreleasepool {
+            NSPasteboard *pb = [NSPasteboard generalPasteboard];
+            [pb clearContents];
+            
+            NSMutableArray *pbItems = [NSMutableArray array];
+            BOOL hasData = NO;
+            
+            NSRunningApplication* prevApp = [NSRunningApplication runningApplicationWithProcessIdentifier:prev_pid];
+            BOOL isTargetFinder = prevApp ? [[prevApp bundleIdentifier] isEqualToString:@"com.apple.finder"] : NO;
+            
+            // Process file paths if any
+            NSMutableArray *activeFilePaths = [NSMutableArray array];
+            if (file_paths_joined && strlen(file_paths_joined) > 0) {
+                NSString *joinedStr = [NSString stringWithUTF8String:file_paths_joined];
+                NSArray *paths = [joinedStr componentsSeparatedByString:@"\n"];
+                for (NSString *p in paths) {
+                    if ([[NSFileManager defaultManager] fileExistsAtPath:p]) {
+                        [activeFilePaths addObject:p];
+                    }
+                }
+            }
+            
+            if ([activeFilePaths count] == 0 && isTargetFinder) {
+                // If target is Finder and we copy an image, create a temp file to paste
+                if (image_file_path && strlen(image_file_path) > 0) {
+                    NSString *img_path = [NSString stringWithUTF8String:image_file_path];
+                    if ([[NSFileManager defaultManager] fileExistsAtPath:img_path]) {
+                        NSURL *tempDir = [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES];
+                        int timestamp = (int)[[NSDate date] timeIntervalSince1970];
+                        NSURL *tempFileURL = [tempDir URLByAppendingPathComponent:[NSString stringWithFormat:@"Anh_Clipboard_%d.png", timestamp]];
+                        NSData *data = [NSData dataWithContentsOfFile:img_path];
+                        if (data && [data writeToURL:tempFileURL atomically:YES]) {
+                            [activeFilePaths addObject:[tempFileURL path]];
+                        }
+                    }
+                } else if (text && strlen(text) > 0) {
+                    // If target is Finder and we copy text, create a temp txt/rtf file to paste
+                    NSURL *tempDir = [NSURL fileURLWithPath:NSTemporaryDirectory() isDirectory:YES];
+                    int timestamp = (int)[[NSDate date] timeIntervalSince1970];
+                    
+                    if (html && strlen(html) > 0) {
+                        NSString *htmlStr = [NSString stringWithUTF8String:html];
+                        NSData *htmlData = [htmlStr dataUsingEncoding:NSUTF8StringEncoding];
+                        NSDictionary *options = @{
+                            NSDocumentTypeDocumentAttribute: NSHTMLTextDocumentType,
+                            NSCharacterEncodingDocumentAttribute: @(NSUTF8StringEncoding)
+                        };
+                        NSAttributedString *attrStr = [[NSAttributedString alloc] initWithData:htmlData options:options documentAttributes:nil error:nil];
+                        if (attrStr) {
+                            NSData *rtfData = [attrStr dataFromRange:NSMakeRange(0, [attrStr length]) documentAttributes:@{NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType} error:nil];
+                            if (rtfData) {
+                                NSURL *tempFileURL = [tempDir URLByAppendingPathComponent:[NSString stringWithFormat:@"Van_ban_Clipboard_%d.rtf", timestamp]];
+                                if ([rtfData writeToURL:tempFileURL atomically:YES]) {
+                                    [activeFilePaths addObject:[tempFileURL path]];
+                                }
+                            }
+                        }
+                    }
+                    
+                    if ([activeFilePaths count] == 0) {
+                        NSURL *tempFileURL = [tempDir URLByAppendingPathComponent:[NSString stringWithFormat:@"Van_ban_Clipboard_%d.txt", timestamp]];
+                        NSString *textStr = [NSString stringWithUTF8String:text];
+                        if ([textStr writeToURL:tempFileURL atomically:YES encoding:NSUTF8StringEncoding error:nil]) {
+                            [activeFilePaths addObject:[tempFileURL path]];
+                        }
+                    }
+                }
+            }
+            
+            if ([activeFilePaths count] > 0) {
+                for (NSString *path in activeFilePaths) {
+                    NSPasteboardItem *fileItem = [[NSPasteboardItem alloc] init];
+                    NSURL *fileURL = [NSURL fileURLWithPath:path];
+                    [fileItem setString:[fileURL absoluteString] forType:NSPasteboardTypeFileURL];
+                    [pbItems addObject:fileItem];
+                }
+                [pb setPropertyList:activeFilePaths forType:@"NSFilenamesPboardType"];
+                hasData = YES;
+            }
+            
+            if (image_file_path && strlen(image_file_path) > 0 && [activeFilePaths count] == 0) {
+                NSString *img_path = [NSString stringWithUTF8String:image_file_path];
+                NSData *data = [NSData dataWithContentsOfFile:img_path];
+                if (data) {
+                    NSPasteboardItem *imageItem = [[NSPasteboardItem alloc] init];
+                    [imageItem setData:data forType:NSPasteboardTypePNG];
+                    NSImage *image = [[NSImage alloc] initWithData:data];
+                    if (image) {
+                        NSData *tiffData = [image TIFFRepresentation];
+                        if (tiffData) {
+                            [imageItem setData:tiffData forType:NSPasteboardTypeTIFF];
+                        }
+                    }
+                    [pbItems addObject:imageItem];
+                    hasData = YES;
+                }
+            } else if ([activeFilePaths count] == 0) {
+                NSPasteboardItem *textItem = [[NSPasteboardItem alloc] init];
+                if (text) {
+                    [textItem setString:[NSString stringWithUTF8String:text] forType:NSPasteboardTypeString];
+                }
+                if (html) {
+                    [textItem setString:[NSString stringWithUTF8String:html] forType:NSPasteboardTypeHTML];
+                }
+                [pbItems addObject:textItem];
+                hasData = YES;
+            }
+            
+            if (hasData) {
+                [pb writeObjects:pbItems];
+            }
+            
+            // Activate the previous application
+            if (prevApp) {
+                [prevApp activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+            }
+            
+            // Post Cmd + V keypresses after a small delay
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
+                CGEventRef down = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, true); // virtual keycode 9 is 'v'
+                CGEventSetFlags(down, kCGEventFlagMaskCommand);
+                CGEventRef up = CGEventCreateKeyboardEvent(src, (CGKeyCode)9, false);
+                CGEventSetFlags(up, kCGEventFlagMaskCommand);
+                CGEventPost(kCGHIDEventTap, down);
+                CGEventPost(kCGHIDEventTap, up);
+                CFRelease(down);
+                CFRelease(up);
+                CFRelease(src);
+            });
+        }
+    }
+
+    void macos_configure_clipboard_window(void* ns_window_ptr, bool pin_on_top) {
+        @autoreleasepool {
+            NSWindow* window = (__bridge NSWindow*)ns_window_ptr;
+            if (!window) return;
+            
+            // Add NonactivatingPanel behavior so it is translucent/overlay spotlight style
+            [window setStyleMask:[window styleMask] | NSWindowStyleMaskNonactivatingPanel];
+            
+            // Set floating level based on pin_on_top
+            window.level = pin_on_top ? NSFloatingWindowLevel : NSNormalWindowLevel;
+            
+            // Apply Popover translucency material
+            NSView* contentView = [window contentView];
+            for (NSView* subview in [contentView subviews]) {
+                if ([subview isKindOfClass:[NSVisualEffectView class]]) {
+                    return;
+                }
+            }
+            
+            NSVisualEffectView* vibrant = [[NSVisualEffectView alloc] initWithFrame:[contentView bounds]];
+            [vibrant setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+            [vibrant setMaterial:NSVisualEffectMaterialPopover];
+            [vibrant setBlendingMode:NSVisualEffectBlendingModeBehindWindow];
+            [vibrant setState:NSVisualEffectStateActive];
+            [contentView addSubview:vibrant positioned:NSWindowBelow relativeTo:nil];
+        }
+    }
+
+    char* macos_get_frontmost_app_name() {
+        @autoreleasepool {
+            NSRunningApplication* app = [[NSWorkspace sharedWorkspace] frontmostApplication];
+            if (!app) return NULL;
+            NSString* name = [app localizedName];
+            if (!name) return NULL;
+            return strdup([name UTF8String]);
+        }
+    }
+
+    int macos_get_frontmost_app_pid() {
+        @autoreleasepool {
+            NSRunningApplication* app = [[NSWorkspace sharedWorkspace] frontmostApplication];
+            if (!app) return 0;
+            return (int)[app processIdentifier];
+        }
+    }
+
+    void macos_set_clipboard_hotkey(int val) {
+        clipboardHotKey = val;
+    }
+
+    void macos_set_clipboard_enabled(bool enabled) {
+        clipboardHistoryEnabled = enabled;
     }
 
     void free_macos_status_icon(const uint8_t* bytes) {

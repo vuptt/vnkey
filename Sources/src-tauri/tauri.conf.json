@@ -12,13 +12,39 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "VNKey",
         "width": 800,
         "height": 700,
         "minWidth": 720,
         "minHeight": 560,
         "center": true,
-        "titleBarStyle": "Transparent"
+        "titleBarStyle": "Transparent",
+        "visible": false
+      },
+      {
+        "label": "clipboard",
+        "title": "Bảng nhớ",
+        "width": 460,
+        "height": 400,
+        "resizable": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "visible": false,
+        "url": "/clipboard"
+      },
+      {
+        "label": "onboarding",
+        "title": "Kích hoạt VNKey",
+        "width": 460,
+        "height": 400,
+        "resizable": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "visible": false,
+        "url": "/onboarding"
       }
     ],
     "security": {

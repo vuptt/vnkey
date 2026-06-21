@@ -40,6 +40,11 @@
     convert_tool_from_code: number;
     convert_tool_to_code: number;
     convert_tool_hotkey: number;
+    clipboard_enabled: number;
+    clipboard_pin_on_top: number;
+    clipboard_auto_hide: number;
+    clipboard_max_items: number;
+    clipboard_hotkey: number;
   }
 
   let settings = $state<Settings>({
@@ -79,6 +84,11 @@
     convert_tool_from_code: 0,
     convert_tool_to_code: 0,
     convert_tool_hotkey: 0xFE0000FE,
+    clipboard_enabled: 1,
+    clipboard_pin_on_top: 1,
+    clipboard_auto_hide: 1,
+    clipboard_max_items: 30,
+    clipboard_hotkey: 0x76000109, // Ctrl + V
   });
 
   let activeTab = $state(0);
@@ -106,6 +116,7 @@
   // Hotkey states
   let isRecordingSwitchKey = $state(false);
   let isRecordingConvertHotkey = $state(false);
+  let isRecordingClipboardHotkey = $state(false);
 
   const charToMacKeyCode: Record<string, number> = {
     "`": 50, "~": 50, "1": 18, "!": 18, "2": 19, "@": 19, "3": 20, "#": 20, "4": 21, "$": 21,
@@ -154,6 +165,7 @@
 
   let switchKeyInfo = $derived(unpackHotkey(settings.switch_key_status));
   let convertHotkeyInfo = $derived(unpackHotkey(settings.convert_tool_hotkey));
+  let clipboardHotkeyInfo = $derived(unpackHotkey(settings.clipboard_hotkey));
 
   function formatHotkeyString(info: ReturnType<typeof unpackHotkey>) {
     let parts = [];
@@ -354,7 +366,16 @@
     }
   }
 
-  function handleHotkeyKeyDown(event: KeyboardEvent, type: 'switch' | 'convert') {
+  async function setRecordingClipboardHotkey(val: boolean) {
+    isRecordingClipboardHotkey = val;
+    try {
+      await invoke("disable_hotkeys", { disable: val });
+    } catch (e) {
+      console.error("Failed to set disable_hotkeys:", e);
+    }
+  }
+
+  function handleHotkeyKeyDown(event: KeyboardEvent, type: 'switch' | 'convert' | 'clipboard') {
     event.preventDefault();
     event.stopPropagation();
     
@@ -403,7 +424,7 @@
       });
       setRecordingSwitchKey(false);
       saveSettings();
-    } else {
+    } else if (type === 'convert') {
       settings.convert_tool_hotkey = packHotkey({
         keyCode: macCode,
         ctrl,
@@ -415,6 +436,18 @@
       });
       setRecordingConvertHotkey(false);
       saveSettings();
+    } else if (type === 'clipboard') {
+      settings.clipboard_hotkey = packHotkey({
+        keyCode: macCode,
+        ctrl,
+        option,
+        command,
+        shift,
+        beep: false,
+        charStr: charStr
+      });
+      setRecordingClipboardHotkey(false);
+      saveSettings();
     }
   }
 
@@ -425,7 +458,7 @@
     }, 10);
   }
 
-  function toggleModifier(type: 'switch' | 'convert', modifier: 'ctrl' | 'option' | 'command' | 'shift' | 'beep') {
+  function toggleModifier(type: 'switch' | 'convert' | 'clipboard', modifier: 'ctrl' | 'option' | 'command' | 'shift' | 'beep') {
     if (type === 'switch') {
       const current = unpackHotkey(settings.switch_key_status);
       if (modifier === 'beep') {
@@ -434,7 +467,7 @@
         current[modifier] = !current[modifier];
       }
       settings.switch_key_status = packHotkey(current);
-    } else {
+    } else if (type === 'convert') {
       const current = unpackHotkey(settings.convert_tool_hotkey);
       if (modifier === 'beep') {
         current.beep = !current.beep;
@@ -442,6 +475,14 @@
         current[modifier] = !current[modifier];
       }
       settings.convert_tool_hotkey = packHotkey(current);
+    } else if (type === 'clipboard') {
+      const current = unpackHotkey(settings.clipboard_hotkey);
+      if (modifier === 'beep') {
+        current.beep = !current.beep;
+      } else {
+        current[modifier] = !current[modifier];
+      }
+      settings.clipboard_hotkey = packHotkey(current);
     }
     saveSettings();
   }
@@ -462,6 +503,20 @@
     let stopListeningAccessibility: (() => void) | undefined;
     let stopListeningShowTab: (() => void) | undefined;
 
+    // Theme sync listener
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateTheme = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+      }
+    };
+    updateTheme(mediaQuery);
+    mediaQuery.addEventListener('change', updateTheme);
+
     checkAccessibility().then((granted) => {
       if (granted) {
         loadSettings();
@@ -479,7 +534,7 @@
               pollingInterval = undefined;
             }
           }
-        }, 1500);
+        }, 1000);
       }
     });
 
@@ -520,53 +575,12 @@
       if (stopListeningAccessibility) stopListeningAccessibility();
       if (stopListeningShowTab) stopListeningShowTab();
       if (pollingInterval) clearInterval(pollingInterval);
+      mediaQuery.removeEventListener('change', updateTheme);
     };
   });
 </script>
 
-{#if !hasAccessibility}
-  <div class="welcome-screen">
-    <div class="welcome-drag-bar" data-tauri-drag-region></div>
-    
-    <div class="welcome-header" data-tauri-drag-region>
-      <div class="welcome-logo">V</div>
-      <h1>Chào mừng đến với VNKey</h1>
-      <p class="welcome-desc">
-        VNKey cần quyền <strong>Trợ năng (Accessibility)</strong> để có thể nhận diện phím gõ tiếng Việt trên macOS.
-      </p>
-    </div>
 
-    <div class="welcome-steps-grid">
-      <div class="step-card">
-        <div class="step-num">1</div>
-        <h4>Cấp quyền</h4>
-        <p>Nhấp vào nút <strong>Cấp quyền trợ năng</strong> ở phía dưới.</p>
-      </div>
-
-      <div class="step-card">
-        <div class="step-num">2</div>
-        <h4>Mở Cài đặt</h4>
-        <p>Chọn <strong>Mở Cài đặt hệ thống</strong> trong hộp thoại xuất hiện.</p>
-      </div>
-
-      <div class="step-card">
-        <div class="step-num">3</div>
-        <h4>Kích hoạt</h4>
-        <p>Tìm ứng dụng <strong>VNKey</strong> và gạt công tắc cho phép hoạt động.</p>
-      </div>
-    </div>
-
-    <div class="welcome-footer">
-      <div class="welcome-actions-row">
-        <button class="btn btn-primary" onclick={requestAccessibility}>Cấp quyền trợ năng</button>
-        <button class="btn btn-secondary" onclick={() => invoke("quit")}>Thoát ứng dụng</button>
-      </div>
-      <p class="welcome-footer-note">
-        <span class="pulse-dot"></span> Ứng dụng sẽ tự động kích hoạt ngay sau khi quyền trợ năng được bật.
-      </p>
-    </div>
-  </div>
-{:else}
   <div class="app-layout">
     <!-- Left Sidebar -->
     <aside class="sidebar" data-tauri-drag-region>
@@ -587,6 +601,10 @@
         <button class="nav-item" class:active={activeTab === 2} onclick={() => activeTab = 2}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1V23M17 23L13 19M17 23L21 19M7 23V1M7 1L3 5M7 1L11 5" /></svg>
           Chuyển mã
+        </button>
+        <button class="nav-item" class:active={activeTab === 5} onclick={() => activeTab = 5}>
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          Bảng nhớ
         </button>
         <button class="nav-item" class:active={activeTab === 3} onclick={() => activeTab = 3}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -1146,6 +1164,112 @@
           </div>
         </section>
 
+      <!-- Tab 5: Bảng nhớ -->
+      {:else if activeTab === 5}
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Bảng nhớ</h2>
+            <p class="panel-subtitle">Quản lý sao chép bản văn, hình ảnh và tệp tin.</p>
+          </div>
+
+          <div class="card">
+            <h3>Cấu hình Bảng nhớ</h3>
+            <div class="toggles-grid">
+              <label class="toggle-container">
+                <span class="toggle-text">Kích hoạt Bảng nhớ</span>
+                <div class="switch">
+                  <input type="checkbox" checked={settings.clipboard_enabled === 1} onchange={(e) => handleCheckboxChange('clipboard_enabled', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-container" class:disabled-zone={settings.clipboard_enabled !== 1}>
+                <span class="toggle-text">Tự động ẩn cửa sổ sau khi chọn dán</span>
+                <div class="switch">
+                  <input type="checkbox" disabled={settings.clipboard_enabled !== 1} checked={settings.clipboard_auto_hide === 1} onchange={(e) => handleCheckboxChange('clipboard_auto_hide', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-container" class:disabled-zone={settings.clipboard_enabled !== 1}>
+                <span class="toggle-text">Ghim cửa sổ Bảng nhớ luôn nổi lên trên</span>
+                <div class="switch">
+                  <input type="checkbox" disabled={settings.clipboard_enabled !== 1} checked={settings.clipboard_pin_on_top === 1} onchange={(e) => handleCheckboxChange('clipboard_pin_on_top', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
+
+            <div class="form-row mt-20" class:disabled-zone={settings.clipboard_enabled !== 1}>
+              <div class="form-group flex-1">
+                <label for="max-items">Số lượng mục tối đa trong bảng nhớ</label>
+                <input
+                  id="max-items"
+                  type="number"
+                  disabled={settings.clipboard_enabled !== 1}
+                  min="5"
+                  max="200"
+                  value={settings.clipboard_max_items}
+                  onchange={(e) => {
+                    settings.clipboard_max_items = parseInt((e.target as HTMLInputElement).value) || 30;
+                    saveSettings();
+                  }}
+                  style="width: 100px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-20" class:disabled-zone={settings.clipboard_enabled !== 1}>
+            <h3>Phím tắt kích hoạt</h3>
+            <div class="hotkey-section">
+              <div class="hotkey-recorder-container">
+                {#if isRecordingClipboardHotkey}
+                  <button 
+                    class="btn btn-primary recording-btn pulse w-full" 
+                    use:autofocusAction
+                    onblur={() => setRecordingClipboardHotkey(false)}
+                    onkeydown={(e) => handleHotkeyKeyDown(e, 'clipboard')}
+                  >
+                    Đang nhấn tổ hợp phím... (Esc để hủy)
+                  </button>
+                {:else}
+                  <button 
+                    class="btn btn-secondary hotkey-btn w-full" 
+                    disabled={settings.clipboard_enabled !== 1}
+                    onclick={() => setRecordingClipboardHotkey(true)}
+                  >
+                    {formatHotkeyString(clipboardHotkeyInfo)}
+                  </button>
+                {/if}
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-20">
+            <h3>Dọn dẹp Bảng nhớ</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span class="text-secondary" style="font-size: 13px;">Xóa sạch toàn bộ văn bản, hình ảnh và tệp đang được lưu trong bảng nhớ.</span>
+              <button
+                class="btn"
+                style="background: #ff453a; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;"
+                onclick={async () => {
+                  if (confirm("Bạn có chắc chắn muốn xóa toàn bộ bảng nhớ không?")) {
+                    try {
+                      await invoke("clear_clipboard_history");
+                      alert("Đã xóa sạch bảng nhớ.");
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }
+                }}
+              >
+                Xóa bảng nhớ
+              </button>
+            </div>
+          </div>
+        </section>
+
       <!-- Tab 4: Thông tin -->
       {:else}
         <section class="panel">
@@ -1179,7 +1303,6 @@
       {/if}
     </main>
   </div>
-{/if}
 
 <style>
   :root {
@@ -1196,25 +1319,23 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 
-  @media (prefers-color-scheme: light) {
-    :root {
-      --bg-app: #f4f4f6;
-      --bg-sidebar: #ffffff;
-      --bg-card: #f9f9fb;
-      --bg-input: #ffffff;
-      --bg-switch-off: #e5e5ea;
-      --text-primary: #1c1c1e;
-      --text-secondary: #6c6c78;
-      --color-accent: #007aff;
-      --color-success: #34c759;
-      --border-color: rgba(0, 0, 0, 0.08);
-    }
+  :global(.light) {
+    --bg-app: #f4f4f6;
+    --bg-sidebar: #ffffff;
+    --bg-card: #f9f9fb;
+    --bg-input: #ffffff;
+    --bg-switch-off: #e5e5ea;
+    --text-primary: #1c1c1e;
+    --text-secondary: #6c6c78;
+    --color-accent: #007aff;
+    --color-success: #34c759;
+    --border-color: rgba(0, 0, 0, 0.08);
   }
 
   :global(body) {
     margin: 0;
     padding: 0;
-    background-color: var(--bg-app);
+    background-color: transparent !important;
     color: var(--text-primary);
     overflow: hidden;
     user-select: none;
@@ -1225,6 +1346,7 @@
     flex-direction: row;
     width: 100vw;
     height: 100vh;
+    background-color: var(--bg-app);
   }
 
   /* Left Sidebar */
@@ -1858,180 +1980,6 @@
 
   .link-item:hover {
     text-decoration: underline;
-  }
-
-  /* Accessibility onboarding styles */
-  .welcome-screen {
-    box-sizing: border-box;
-    width: 100vw;
-    height: 100vh;
-    padding: 50px 40px 40px;
-    background-color: var(--bg-app);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    position: relative;
-    text-align: center;
-  }
-
-  .welcome-drag-bar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 50px;
-    cursor: default;
-  }
-
-  .welcome-header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 10px;
-  }
-
-  .welcome-logo {
-    width: 64px;
-    height: 64px;
-    font-size: 32px;
-    font-weight: bold;
-    background: linear-gradient(135deg, var(--color-accent), #0056b3);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 14px;
-    box-shadow: 0 4px 12px rgba(0, 110, 255, 0.3);
-  }
-
-  .welcome-header h1 {
-    font-size: 24px;
-    font-weight: bold;
-    color: var(--text-primary);
-    margin: 16px 0 8px;
-  }
-
-  .welcome-desc {
-    font-size: 13.5px;
-    line-height: 1.5;
-    color: var(--text-secondary);
-    max-width: 500px;
-    margin: 0;
-  }
-
-  .welcome-desc strong {
-    color: var(--text-primary);
-  }
-
-  .welcome-steps-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    width: 100%;
-    max-width: 720px;
-    margin: 20px 0;
-  }
-
-  .step-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 20px 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  }
-
-  @media (prefers-color-scheme: light) {
-    .step-card {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-    }
-  }
-
-  .step-num {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background-color: rgba(0, 110, 255, 0.1);
-    color: var(--color-accent);
-    font-weight: bold;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-  }
-
-  .step-card h4 {
-    margin: 0 0 6px;
-    font-size: 14px;
-    font-weight: bold;
-    color: var(--text-primary);
-  }
-
-  .step-card p {
-    margin: 0;
-    font-size: 12px;
-    line-height: 1.45;
-    color: var(--text-secondary);
-  }
-
-  .welcome-footer {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .welcome-actions-row {
-    display: flex;
-    gap: 12px;
-    width: 100%;
-    max-width: 440px;
-  }
-
-  .welcome-actions-row .btn {
-    flex: 1;
-    padding: 10px 20px;
-    font-size: 13.5px;
-    border-radius: 8px;
-  }
-
-  .welcome-footer-note {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin: 0;
-  }
-
-  .pulse-dot {
-    width: 6px;
-    height: 6px;
-    background-color: var(--color-success);
-    border-radius: 50%;
-    display: inline-block;
-    animation: pulse-dot-anim 1.5s infinite;
-  }
-
-  @keyframes pulse-dot-anim {
-    0% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0px rgba(48, 209, 88, 0.7);
-    }
-    70% {
-      transform: scale(1);
-      box-shadow: 0 0 0 5px rgba(48, 209, 88, 0);
-    }
-    100% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0px rgba(48, 209, 88, 0);
-    }
   }
 
   /* Utility classes */

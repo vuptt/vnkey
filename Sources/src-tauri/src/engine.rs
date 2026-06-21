@@ -87,6 +87,38 @@ extern "C" {
     fn get_macos_status_icon(vietnamese: bool, gray: bool, len: *mut c_int) -> *const u8;
     #[cfg(target_os = "macos")]
     fn free_macos_status_icon(bytes: *const u8);
+
+    #[cfg(target_os = "macos")]
+    pub fn macos_clipboard_get_change_count() -> i64;
+    #[cfg(target_os = "macos")]
+    pub fn macos_clipboard_is_sensitive() -> bool;
+    #[cfg(target_os = "macos")]
+    pub fn macos_clipboard_read_text() -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_clipboard_read_html() -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_clipboard_read_file_urls() -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_clipboard_get_image_png(len: *mut c_int) -> *const u8;
+    #[cfg(target_os = "macos")]
+    pub fn macos_clipboard_paste(
+        prev_pid: c_int,
+        text: *const c_char,
+        html: *const c_char,
+        image_file_path: *const c_char,
+        file_paths_joined: *const c_char,
+    );
+    #[cfg(target_os = "macos")]
+    #[allow(dead_code)]
+    pub fn macos_configure_clipboard_window(ns_window_ptr: *mut c_void, pin_on_top: bool);
+    #[cfg(target_os = "macos")]
+    pub fn macos_get_frontmost_app_name() -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_get_frontmost_app_pid() -> c_int;
+    #[cfg(target_os = "macos")]
+    pub fn macos_set_clipboard_hotkey(val: c_int);
+    #[cfg(target_os = "macos")]
+    pub fn macos_set_clipboard_enabled(enabled: bool);
 }
 
 pub fn init() {
@@ -195,6 +227,99 @@ pub fn macos_status_icon(vietnamese: bool, gray: bool) -> Option<Vec<u8>> {
         Some(vec)
     }
 }
+
+#[cfg(target_os = "macos")]
+pub fn clipboard_get_change_count() -> i64 {
+    unsafe { macos_clipboard_get_change_count() }
+}
+
+#[cfg(target_os = "macos")]
+pub fn clipboard_is_sensitive() -> bool {
+    unsafe { macos_clipboard_is_sensitive() }
+}
+
+#[cfg(target_os = "macos")]
+pub fn clipboard_read_text() -> Option<String> {
+    unsafe { take_string(macos_clipboard_read_text()) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn clipboard_read_html() -> Option<String> {
+    unsafe { take_string(macos_clipboard_read_html()) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn clipboard_read_file_urls() -> Option<String> {
+    unsafe { take_string(macos_clipboard_read_file_urls()) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn clipboard_get_image_png() -> Option<Vec<u8>> {
+    unsafe {
+        let mut len: c_int = 0;
+        let ptr = macos_clipboard_get_image_png(&mut len);
+        if ptr.is_null() || len <= 0 {
+            return None;
+        }
+        let slice = std::slice::from_raw_parts(ptr, len as usize);
+        let vec = slice.to_vec();
+        free_macos_status_icon(ptr);
+        Some(vec)
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub fn clipboard_paste_item(
+    prev_pid: i32,
+    text: Option<&str>,
+    html: Option<&str>,
+    image_file_path: Option<&str>,
+    file_paths_joined: Option<&str>,
+) {
+    let text_c = text.and_then(|s| CString::new(s).ok());
+    let html_c = html.and_then(|s| CString::new(s).ok());
+    let img_c = image_file_path.and_then(|s| CString::new(s).ok());
+    let files_c = file_paths_joined.and_then(|s| CString::new(s).ok());
+    
+    unsafe {
+        macos_clipboard_paste(
+            prev_pid,
+            text_c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            html_c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            img_c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+            files_c.as_ref().map_or(std::ptr::null(), |c| c.as_ptr()),
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[allow(dead_code)]
+pub fn configure_clipboard_window(ns_window_ptr: *mut std::ffi::c_void, pin_on_top: bool) {
+    unsafe {
+        macos_configure_clipboard_window(ns_window_ptr, pin_on_top);
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_frontmost_app_name() -> Option<String> {
+    unsafe { take_string(macos_get_frontmost_app_name()) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_frontmost_app_pid() -> i32 {
+    unsafe { macos_get_frontmost_app_pid() }
+}
+
+#[cfg(target_os = "macos")]
+pub fn macos_set_clipboard_hotkey_val(val: i32) {
+    unsafe { macos_set_clipboard_hotkey(val) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn macos_set_clipboard_enabled_val(enabled: bool) {
+    unsafe { macos_set_clipboard_enabled(enabled) }
+}
+
 
 #[cfg(test)]
 mod tests {
