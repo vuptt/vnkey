@@ -3,7 +3,7 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 OUT="${TMPDIR:-/tmp}/vnkey-engine-corpus-test"
-FLAGS="-O2"
+FLAGS="-O2 -Wall -Wextra -Wpedantic"
 
 if [ "${SANITIZE:-0}" = "1" ]; then
   FLAGS="-O1 -g -fsanitize=address,undefined"

@@ -15,7 +15,7 @@ extern "C" {
     void rust_onQuickConvert();
 }
 
-#define FRONT_APP [[NSWorkspace sharedWorkspace] frontmostApplication].bundleIdentifier
+#define FRONT_APP _frontMostApp
 #define VNKEY_BUNDLE @"com.vnkey.app"
 #define OTHER_CONTROL_KEY (_flag & kCGEventFlagMaskCommand) || (_flag & kCGEventFlagMaskControl) || \
                             (_flag & kCGEventFlagMaskAlternate) || (_flag & kCGEventFlagMaskSecondaryFn) || \
@@ -51,17 +51,7 @@ extern "C" {
     extern int vFixChromiumBrowser;
     extern int vPerformLayoutCompat;
     extern int vDisableHotkeys;
-    //app which must sent special empty character
-    NSArray* _niceSpaceApp = @[@"com.sublimetext.3",
-                               @"com.sublimetext.2",
-                             ];
-    
-    //app which error with unicode Compound
-    NSArray* _unicodeCompoundApp = @[@"com.apple.",
-                                     @"com.google.Chrome", @"com.brave.Browser",
-                                     @"com.microsoft.edgemac.Dev", @"com.microsoft.edgemac.Beta", @"com.microsoft.Edge.Dev", @"com.microsoft.Edge"];
-    NSArray* _recommendWorkaroundDisabledApp = @[@"com.apple.Spotlight"];
-    
+
     CGEventSourceRef myEventSource = NULL;
     vKeyHookState* pData;
     CGEventRef eventBackSpaceDown;
@@ -88,6 +78,10 @@ extern "C" {
     vector<Byte> savedSmartSwitchKeyData; ////use for smart switch key
     
     NSString* _frontMostApp = @"UnknownApp";
+    BOOL _currentInputSourceIsEnglish = YES;
+    CFAbsoluteTime _frontMostAppCheckedAt = 0;
+    CFAbsoluteTime _spotlightCheckedAt = 0;
+    BOOL _spotlightVisible = NO;
     
     void VNKeyFree() {
         if (eventBackSpaceDown) {
@@ -106,13 +100,13 @@ extern "C" {
 
     void VNKeyInit() {
         VNKeyFree();
-        
+
         myEventSource = CGEventSourceCreate(kCGEventSourceStatePrivate);
         pData = (vKeyHookState*)vKeyInit();
 
         eventBackSpaceDown = CGEventCreateKeyboardEvent (myEventSource, 51, true);
         eventBackSpaceUp = CGEventCreateKeyboardEvent (myEventSource, 51, false);
-        
+
         //init and load macro data
         NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
         NSData *data = [prefs objectForKey:@"macroData"];
@@ -151,12 +145,33 @@ extern "C" {
     }
     
     void queryFrontMostApp() {
-        if ([[[NSWorkspace sharedWorkspace] frontmostApplication].bundleIdentifier compare:VNKEY_BUNDLE] != 0) {
-            _frontMostApp = [[NSWorkspace sharedWorkspace] frontmostApplication].bundleIdentifier;
-            if (_frontMostApp == nil)
-                _frontMostApp = [[NSWorkspace sharedWorkspace] frontmostApplication].localizedName != nil ?
-                [[NSWorkspace sharedWorkspace] frontmostApplication].localizedName : @"UnknownApp";
+        NSRunningApplication *application = [[NSWorkspace sharedWorkspace] frontmostApplication];
+        NSString *bundleIdentifier = application.bundleIdentifier;
+        if (bundleIdentifier == nil || [bundleIdentifier compare:VNKEY_BUNDLE] != 0) {
+            _frontMostApp = bundleIdentifier ?: application.localizedName ?: @"UnknownApp";
         }
+        _frontMostAppCheckedAt = CFAbsoluteTimeGetCurrent();
+    }
+
+    void refreshFrontMostAppIfNeeded() {
+        const CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        if (now - _frontMostAppCheckedAt >= 0.1) {
+            queryFrontMostApp();
+        }
+    }
+
+    void refreshCurrentInputSource() {
+        _currentInputSourceIsEnglish = YES;
+        TISInputSourceRef inputSource = TISCopyCurrentKeyboardInputSource();
+        if (inputSource == NULL) {
+            return;
+        }
+        CFArrayRef languages = (CFArrayRef)TISGetInputSourceProperty(inputSource, kTISPropertyInputSourceLanguages);
+        if (languages != NULL && CFArrayGetCount(languages) > 0) {
+            CFStringRef language = (CFStringRef)CFArrayGetValueAtIndex(languages, 0);
+            _currentInputSourceIsEnglish = [(__bridge NSString *)language isLike:@"en"];
+        }
+        CFRelease(inputSource);
     }
     
     NSString* ConvertUtil(NSString* str) {
@@ -164,34 +179,52 @@ extern "C" {
     }
     
     BOOL containUnicodeCompoundApp(NSString* topApp) {
-        if (topApp == nil) return false;
-        for (_j = 0; _j < [_unicodeCompoundApp count]; _j++) {
-            if ([topApp hasPrefix:[_unicodeCompoundApp objectAtIndex:_j]] || [[_unicodeCompoundApp objectAtIndex:_j] isEqualToString:topApp])
-                return true;
-        }
-        return false;
+        return topApp != nil &&
+            ([topApp hasPrefix:@"com.apple."] ||
+             [topApp isEqualToString:@"com.google.Chrome"] ||
+             [topApp isEqualToString:@"com.brave.Browser"] ||
+             [topApp isEqualToString:@"com.microsoft.edgemac.Dev"] ||
+             [topApp isEqualToString:@"com.microsoft.edgemac.Beta"] ||
+             [topApp isEqualToString:@"com.microsoft.Edge.Dev"] ||
+             [topApp isEqualToString:@"com.microsoft.Edge"]);
+    }
+
+    BOOL isNiceSpaceApp(NSString* topApp) {
+        return [topApp isEqualToString:@"com.sublimetext.3"] ||
+               [topApp isEqualToString:@"com.sublimetext.2"];
+    }
+
+    BOOL isRecommendWorkaroundDisabledApp(NSString* topApp) {
+        return [topApp isEqualToString:@"com.apple.Spotlight"];
     }
 
     BOOL isSpotlightVisible() {
+        const CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+        if (now - _spotlightCheckedAt < 0.2) {
+            return _spotlightVisible;
+        }
+        _spotlightCheckedAt = now;
+        _spotlightVisible = NO;
         NSArray *windows = CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
                                                                         kCGNullWindowID));
         for (NSDictionary *window in windows) {
             if ([[window objectForKey:(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Spotlight"]) {
-                return true;
+                _spotlightVisible = YES;
+                break;
             }
         }
-        return false;
+        return _spotlightVisible;
     }
 
     BOOL shouldUseRecommendWorkaround(NSString* topApp) {
         if (!vFixRecommendBrowser) return false;
         if (isSpotlightVisible()) return false;
         if (topApp == nil) return true;
-        return ![_recommendWorkaroundDisabledApp containsObject:topApp];
+        return !isRecommendWorkaroundDisabledApp(topApp);
     }
 
     BOOL shouldUseSelectionReplacement(NSString* topApp) {
-        return isSpotlightVisible() || [_recommendWorkaroundDisabledApp containsObject:topApp];
+        return isSpotlightVisible() || isRecommendWorkaroundDisabledApp(topApp);
     }
     
     void saveSmartSwitchKeyData() {
@@ -339,7 +372,7 @@ extern "C" {
             InsertKeyLength(1);
         
         _newChar = 0x202F; //empty char
-        if ([_niceSpaceApp containsObject:FRONT_APP]) {
+        if (isNiceSpaceApp(FRONT_APP)) {
             _newChar = 0x200C; //Unicode character with empty space
         }
         
@@ -426,7 +459,7 @@ extern "C" {
         
         if (_newCharSize > 0) {
             for (_k = dataFromMacro ? offset : pData->newCharCount - 1 - offset;
-                 dataFromMacro ? _k < pData->macroData.size() : _k >= 0;
+                 dataFromMacro ? _k < (int)pData->macroData.size() : _k >= 0;
                  dataFromMacro ? _k++ : _k--) {
                 
                 if (_j >= 16) {
@@ -511,7 +544,7 @@ extern "C" {
     }
             
     bool checkHotKey(int hotKeyData, bool checkKeyCode=true) {
-        if ((hotKeyData & (~0x8000)) == EMPTY_HOTKEY)
+        if ((Uint32)(hotKeyData & (~0x8000)) == (Uint32)EMPTY_HOTKEY)
             return false;
         CGEventFlags flagToCheck = checkKeyCode ? _flag : _lastFlag;
         if (HAS_CONTROL(hotKeyData) ^ GET_BOOL(flagToCheck & kCGEventFlagMaskControl))
@@ -557,7 +590,7 @@ extern "C" {
         if (!vSendKeyStepByStep) {
             SendNewCharString(true);
         } else {
-            for (int i = 0; i < pData->macroData.size(); i++) {
+            for (size_t i = 0; i < pData->macroData.size(); i++) {
                 if (pData->macroData[i] & PURE_CHARACTER_MASK) {
                     SendPureCharacter(pData->macroData[i]);
                 } else {
@@ -598,6 +631,7 @@ extern "C" {
      * MAIN Callback.
      */
     CGEventRef VNKeyCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
+        (void)refcon;
         //dont handle my event
         if (CGEventGetIntegerValueField(event, kCGEventSourceStateID) == CGEventSourceGetSourceStateID(myEventSource)) {
             return event;
@@ -673,6 +707,7 @@ extern "C" {
             return event;
         
         _proxy = proxy;
+        refreshFrontMostAppIfNeeded();
         
         //If is in english mode
         if (vLanguage == 0) {
@@ -697,22 +732,8 @@ extern "C" {
         }
 
         //if "turn off Vietnamese when in other language" mode on
-        if(vOtherLanguage){
-            TISInputSourceRef isource = TISCopyCurrentKeyboardInputSource();
-            if ( isource != NULL )
-            {
-                CFArrayRef languages = (CFArrayRef) TISGetInputSourceProperty(isource, kTISPropertyInputSourceLanguages);
-                
-                if (CFArrayGetCount(languages) > 0) {
-                    CFStringRef langRef = (CFStringRef)CFArrayGetValueAtIndex(languages, 0);
-                    NSString *currentLanguage = (__bridge NSString *)langRef;
-                    if(![currentLanguage isLike:@"en"]){
-                        return event;
-                    }
-                    CFRelease(langRef);
-                    CFRelease(isource);
-                }
-            }
+        if (vOtherLanguage && !_currentInputSourceIsEnglish) {
+            return event;
         }
         
         //handle keyboard
@@ -746,7 +767,7 @@ extern "C" {
                 
                 //fix autocomplete
                 if (shouldUseRecommendWorkaround(FRONT_APP) && pData->extCode != 4) {
-                    if (vFixChromiumBrowser && [_unicodeCompoundApp containsObject:FRONT_APP]) {
+                    if (vFixChromiumBrowser && containUnicodeCompoundApp(FRONT_APP)) {
                         if (pData->backspaceCount > 0) {
                             SendShiftAndLeftArrow();
                             if (pData->backspaceCount == 1)
@@ -812,11 +833,23 @@ extern "C" {
         AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
     }
 
+    void onInputSourceChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+        (void)center;
+        (void)observer;
+        (void)name;
+        (void)object;
+        (void)userInfo;
+        refreshCurrentInputSource();
+        rust_onInputMethodChanged(vLanguage);
+    }
+
     bool start_event_tap() {
         if (_isInited)
             return true;
         
         VNKeyInit();
+        queryFrontMostApp();
+        refreshCurrentInputSource();
         
         eventMask = ((1 << kCGEventKeyDown) |
                      (1 << kCGEventKeyUp) |
@@ -844,6 +877,15 @@ extern "C" {
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
         CGEventTapEnable(eventTap, true);
         
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDistributedCenter(),
+            NULL,
+            onInputSourceChanged,
+            kTISNotifySelectedKeyboardInputSourceChanged,
+            NULL,
+            CFNotificationSuspensionBehaviorDeliverImmediately
+        );
+
         return true;
     }
 
@@ -859,6 +901,12 @@ extern "C" {
                 CFRelease(eventTap);
                 eventTap = NULL;
             }
+            CFNotificationCenterRemoveObserver(
+                CFNotificationCenterGetDistributedCenter(),
+                NULL,
+                kTISNotifySelectedKeyboardInputSourceChanged,
+                NULL
+            );
             VNKeyFree();
             _isInited = false;
         }
@@ -890,9 +938,14 @@ extern "C" {
 
     const uint8_t* get_macos_status_icon(bool vietnamese, bool gray, int* len) {
         @autoreleasepool {
+            BOOL isNotEnglish = vOtherLanguage && !_currentInputSourceIsEnglish;
+
             NSSize size = NSMakeSize(18, 18);
             NSImage* image = [NSImage imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect rect) {
                 NSColor* color = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
+                if (isNotEnglish) {
+                    color = [color colorWithAlphaComponent:0.4];
+                }
                 
                 NSRect frameRect = NSInsetRect(rect, 1, 1);
                 NSBezierPath* frame = [NSBezierPath bezierPathWithRoundedRect:frameRect xRadius:2 yRadius:2];
@@ -918,9 +971,13 @@ extern "C" {
                     [text drawAtPoint:NSMakePoint(x, y) withAttributes:attrs];
                     [NSGraphicsContext restoreGraphicsState];
                 } else {
+                    NSColor* textColor = [NSColor whiteColor];
+                    if (isNotEnglish) {
+                        textColor = [textColor colorWithAlphaComponent:0.4];
+                    }
                     NSDictionary* attrs = @{
                         NSFontAttributeName: font,
-                        NSForegroundColorAttributeName: [NSColor whiteColor]
+                        NSForegroundColorAttributeName: textColor
                     };
                     [text drawAtPoint:NSMakePoint(x, y) withAttributes:attrs];
                 }

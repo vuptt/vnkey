@@ -38,8 +38,8 @@ static bool unicodeReverseMapInited = false;
 static void initUnicodeReverseMap() {
     if (unicodeReverseMapInited) return;
     for (auto it = _codeTable[0].begin(); it != _codeTable[0].end(); ++it) {
-        for (int z = 0; z < it->second.size(); z++) {
-            unicodeReverseMap[it->second[z]] = { it->first, z };
+        for (size_t z = 0; z < it->second.size(); z++) {
+            unicodeReverseMap[it->second[z]] = { it->first, (int)z };
         }
     }
     unicodeReverseMapInited = true;
@@ -57,8 +57,8 @@ static void initCodeTableReverseMap() {
     if (codeTableReverseMapInited) return;
     for (int table = 0; table < 5; ++table) {
         for (auto it = _codeTable[table].begin(); it != _codeTable[table].end(); ++it) {
-            for (int z = 0; z < it->second.size(); z++) {
-                codeTableReverseMap[table][it->second[z]] = { it->first, z };
+            for (size_t z = 0; z < it->second.size(); z++) {
+                codeTableReverseMap[table][it->second[z]] = { it->first, (int)z };
             }
         }
     }
@@ -212,7 +212,7 @@ static bool modifyCaseUnicode(Uint32& code, const bool& isUpperCase=true) {
         } else if (idx % 2 != 0 && isUpperCase) {
             idx--;
         }
-        if (idx < _codeTable[vCodeTable][baseKey].size()) {
+        if (idx >= 0 && (size_t)idx < _codeTable[vCodeTable][baseKey].size()) {
             code = _codeTable[vCodeTable][baseKey][idx] | CHAR_CODE_MASK;
         }
         return code != oldCode;

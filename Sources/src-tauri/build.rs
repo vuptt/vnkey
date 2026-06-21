@@ -28,16 +28,26 @@ fn main() {
         builder.define("LINUX", None);
     }
 
+    builder.compile("vnkey_engine");
+
     if target_os == "macos" {
-        builder.flag("-mmacosx-version-min=11.0");
-        builder.file("src/tauri_event_tap.mm");
+        // Compile the Objective-C++ adapter separately so ARC applies only to
+        // Cocoa objects, not to the portable C++ engine sources. The adapter
+        // keeps cached NSString/NSDictionary objects across event callbacks;
+        // ARC is required to keep those references alive safely.
+        cc::Build::new()
+            .cpp(true)
+            .opt_level(2)
+            .flag("-mmacosx-version-min=11.0")
+            .flag("-fobjc-arc")
+            .file("src/tauri_event_tap.mm")
+            .include("engine")
+            .compile("vnkey_macos_adapter");
         println!("cargo:rerun-if-changed=src/tauri_event_tap.mm");
         println!("cargo:rustc-link-lib=framework=Carbon");
         println!("cargo:rustc-link-lib=framework=Cocoa");
         println!("cargo:rustc-link-lib=framework=AppKit");
     }
-
-    builder.compile("vnkey_engine");
 
     tauri_build::build();
 }

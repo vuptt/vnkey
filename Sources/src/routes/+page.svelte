@@ -928,7 +928,7 @@
               </div>
 
               <div class="form-group mt-15">
-                <label>Tùy chọn văn bản đầu ra</label>
+                <div class="form-label">Tùy chọn văn bản đầu ra</div>
                 <div class="toggles-grid-compact mt-5">
                   <label class="toggle-container">
                     <span class="toggle-text">Chuyển sang CHỮ HOA</span>
@@ -1498,7 +1498,8 @@
     gap: 6px;
   }
 
-  .form-group label {
+  .form-group label,
+  .form-group .form-label {
     font-size: 12.5px;
     color: var(--text-secondary);
     font-weight: 500;
@@ -1535,25 +1536,6 @@
     outline: none;
     font-size: 13.5px;
     cursor: pointer;
-  }
-
-  .form-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .form-row .form-group {
-    flex: 1;
-  }
-
-  .swap-button-container {
-    padding-top: 22px;
-  }
-
-  .swap-btn {
-    padding: 6px 10px !important;
-    font-size: 15px !important;
   }
 
   /* toggle switch vanilla */
@@ -1615,51 +1597,10 @@
     transform: translateX(18px);
   }
 
-  /* Hotkey configurations styling */
-  .modifiers-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .badge-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 6px;
-    background-color: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  @media (prefers-color-scheme: light) {
-    .badge-checkbox {
-      background-color: #ffffff;
-    }
-  }
-
-  .badge-checkbox.checked {
-    background-color: rgba(0, 122, 255, 0.1);
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  .badge-checkbox input {
-    display: none;
-  }
-
   .hotkey-recorder-container {
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-
-  .hotkey-label {
-    font-size: 12.5px;
-    color: var(--text-secondary);
   }
 
   .hotkey-btn {

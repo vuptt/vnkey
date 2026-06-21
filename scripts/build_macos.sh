@@ -5,17 +5,43 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TAURI_DIR="$WORKSPACE_ROOT/Sources"
 
-ACTION="${1:-build}" # default is build
+ACTION="${1:-build}"
 
-if [ "$ACTION" != "build" ] && [ "$ACTION" != "clean" ] && [ "$ACTION" != "dmg" ] && [ "$ACTION" != "install" ]; then
-    echo "Usage: $0 [build|clean|dmg|install]"
+if [ "$ACTION" = "dmg" ]; then
+    ACTION="build-installer"
+fi
+
+case "$ACTION" in
+    build|build-installer|install|clean|uninstall) ;;
+    *)
+    echo "Usage: $0 [build|build-installer|install|clean|uninstall]"
     echo ""
     echo "Actions:"
-    echo "  build   : Build application bundle (.app) (default)"
-    echo "  clean   : Clean all build artifacts and node_modules"
-    echo "  dmg     : Build application bundle and disk image (.dmg)"
-    echo "  install : Build, terminate running VNKey app, replace /Applications/VNKey.app, and run it"
+    echo "  build           Build the application bundle (.app) (default)"
+    echo "  build-installer Build the application bundle and disk image (.dmg)"
+    echo "  install         Build and install /Applications/VNKey.app"
+    echo "  clean           Remove Cargo, frontend, and copied build artifacts"
+    echo "  uninstall       Remove /Applications/VNKey.app"
     exit 1
+    ;;
+esac
+
+run_privileged() {
+    if [ -w /Applications ]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
+if [ "$ACTION" = "uninstall" ]; then
+    echo "=== Uninstalling VNKey ==="
+    killall VNKey 2>/dev/null || true
+    if [ -e /Applications/VNKey.app ]; then
+        run_privileged rm -rf /Applications/VNKey.app
+    fi
+    echo "=== Uninstall finished ==="
+    exit 0
 fi
 
 if [ "$ACTION" = "clean" ]; then
@@ -26,6 +52,7 @@ if [ "$ACTION" = "clean" ]; then
     fi
     cd "$TAURI_DIR"
     rm -rf build node_modules .svelte-kit
+    rm -rf "$WORKSPACE_ROOT/.build"
     echo "=== Clean finished ==="
     exit 0
 fi
@@ -39,34 +66,44 @@ npm ci
 npm run check
 
 BUNDLES="app"
-if [ "$ACTION" = "dmg" ]; then
+if [ "$ACTION" = "build-installer" ]; then
     BUNDLES="app,dmg"
 fi
 
+rm -rf "$TAURI_DIR/src-tauri/target/release/bundle/macos/VNKey.app"
+if [ "$ACTION" = "build-installer" ]; then
+    rm -rf "$TAURI_DIR/src-tauri/target/release/bundle/dmg"
+fi
 npm run tauri build -- --bundles "$BUNDLES"
 
 APP_PATH="$TAURI_DIR/src-tauri/target/release/bundle/macos/VNKey.app"
+if [ ! -d "$APP_PATH" ]; then
+    echo "Error: expected application bundle was not produced: $APP_PATH"
+    exit 1
+fi
 codesign --force --deep --sign - "$APP_PATH"
-codesign --verify --deep --strict "$APP_PATH"
+codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
 BUILD_OUT_DIR="$WORKSPACE_ROOT/.build"
 mkdir -p "$BUILD_OUT_DIR"
 echo "=== Copying macOS build artifacts to $BUILD_OUT_DIR ==="
 rm -rf "$BUILD_OUT_DIR/VNKey.app"
 cp -R "$APP_PATH" "$BUILD_OUT_DIR/"
-if [ -d "$TAURI_DIR/src-tauri/target/release/bundle/dmg" ]; then
-    cp "$TAURI_DIR/src-tauri/target/release/bundle/dmg"/*.dmg "$BUILD_OUT_DIR/" 2>/dev/null || true
+if [ "$ACTION" = "build-installer" ]; then
+    find "$TAURI_DIR/src-tauri/target/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' -exec cp {} "$BUILD_OUT_DIR/" \;
 fi
 
 if [ "$ACTION" = "install" ]; then
     echo "=== Installing VNKey.app to /Applications ==="
     echo "Closing currently running VNKey app..."
-    killall VNKey || true
+    killall VNKey 2>/dev/null || true
     sleep 1
     
     echo "Replacing /Applications/VNKey.app..."
-    rm -rf /Applications/VNKey.app
-    cp -R "$APP_PATH" /Applications/
+    if [ -e /Applications/VNKey.app ]; then
+        run_privileged rm -rf /Applications/VNKey.app
+    fi
+    run_privileged ditto "$APP_PATH" /Applications/VNKey.app
     
     echo "Opening new VNKey app..."
     open /Applications/VNKey.app

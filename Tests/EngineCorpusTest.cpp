@@ -50,6 +50,27 @@ struct Result {
   std::vector<std::string> examples;
 };
 
+struct LatencySummary {
+  long long medianNs = 0;
+  long long p95Ns = 0;
+  long long p99Ns = 0;
+  long long maxNs = 0;
+};
+
+LatencySummary summarizeLatency(std::vector<long long> samples) {
+  if (samples.empty())
+    return {};
+  std::sort(samples.begin(), samples.end());
+  const auto atPercentile = [&samples](double percentile) {
+    const size_t index = std::min(
+        samples.size() - 1,
+        static_cast<size_t>(percentile * static_cast<double>(samples.size() - 1)));
+    return samples[index];
+  };
+  return {atPercentile(0.50), atPercentile(0.95), atPercentile(0.99),
+          samples.back()};
+}
+
 std::vector<uint32_t> decodeUtf8(const std::string &text) {
   std::vector<uint32_t> result;
   for (size_t i = 0; i < text.size();) {
@@ -380,6 +401,57 @@ void printResult(const char *name, const Result &result) {
   }
 }
 
+void runLatencyBenchmark(const std::vector<std::string> &corpus) {
+  std::vector<long long> lookupSamples;
+  std::vector<long long> engineSamples;
+  lookupSamples.reserve(corpus.size() * 10);
+  engineSamples.reserve(corpus.size() * 10);
+
+  size_t keyEvents = 0;
+  size_t replacementEvents = 0;
+  for (const auto &word : corpus) {
+    auto *state = static_cast<vKeyHookState *>(vKeyInit());
+    const std::string raw = toTelex(word) + " ";
+    for (uint32_t cp : decodeUtf8(raw)) {
+      const auto lookupStarted = std::chrono::steady_clock::now();
+      const auto character = _characterMap.find(cp);
+      const auto lookupFinished = std::chrono::steady_clock::now();
+      if (character == _characterMap.end())
+        continue;
+
+      const Uint32 keyData = character->second;
+      const auto engineStarted = std::chrono::steady_clock::now();
+      vKeyHandleEvent(Keyboard, KeyDown, keyData & CHAR_MASK,
+                      keyData & CAPS_MASK ? 1 : 0, false);
+      const auto engineFinished = std::chrono::steady_clock::now();
+
+      lookupSamples.push_back(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              lookupFinished - lookupStarted)
+              .count());
+      engineSamples.push_back(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              engineFinished - engineStarted)
+              .count());
+      ++keyEvents;
+      if (state->code != vDoNothing)
+        ++replacementEvents;
+    }
+  }
+
+  const LatencySummary lookup = summarizeLatency(std::move(lookupSamples));
+  const LatencySummary engine = summarizeLatency(std::move(engineSamples));
+  std::cout << "latency_benchmark words=" << corpus.size()
+            << " key_events=" << keyEvents
+            << " replacement_events=" << replacementEvents << '\n';
+  std::cout << "lookup_ns median=" << lookup.medianNs
+            << " p95=" << lookup.p95Ns << " p99=" << lookup.p99Ns
+            << " max=" << lookup.maxNs << '\n';
+  std::cout << "engine_ns median=" << engine.medianNs
+            << " p95=" << engine.p95Ns << " p99=" << engine.p99Ns
+            << " max=" << engine.maxNs << '\n';
+}
+
 } // namespace
 
 int main(int argc, char *argv[]) {
@@ -436,6 +508,10 @@ int main(int argc, char *argv[]) {
   }
 
   const auto corpus = makeCorpus(10000);
+  if (argc > 1 && std::string(argv[1]) == "--benchmark") {
+    runLatencyBenchmark(corpus);
+    return 0;
+  }
   const auto started = std::chrono::steady_clock::now();
 
   const Result baseline = evaluate(corpus, false, Policy::EngineOnly);

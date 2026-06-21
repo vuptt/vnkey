@@ -45,9 +45,9 @@ static void initConvertLookupMap() {
     if (convertLookupMapInited) return;
     for (int code = 0; code < 5; ++code) {
         for (auto it = _codeTable[code].begin(); it != _codeTable[code].end(); ++it) {
-            for (int z = 0; z < it->second.size(); z++) {
+            for (size_t z = 0; z < it->second.size(); z++) {
                 ConvertLookupKey key = { it->second[z], (Uint8)code };
-                convertLookupMap[key] = { (int)it->first, z };
+                convertLookupMap[key] = { (int)it->first, (int)z };
             }
         }
     }
@@ -90,7 +90,7 @@ string convertUtil(const string& sourceString) {
     if (convertToolToAllNonCaps)
         shouldUpperCase = false;
     
-    for (int i = 0; i < data.size(); i++) {
+    for (size_t i = 0; i < data.size(); i++) {
         p = 0;
         //find char with tone/mark
         if (i < data.size() - 1) {
@@ -116,7 +116,7 @@ string convertUtil(const string& sourceString) {
             }
             
             if (findKeyCode(t, convertToolFromCode, j, k)) {
-                i += p;
+                i += (size_t)p;
                 target = _codeTable[convertToolToCode][j][k];
                 if ((convertToolToAllCaps || shouldUpperCase) && k % 2 != 0) {
                     target = _codeTable[convertToolToCode][j][k-1];
