@@ -1322,6 +1322,21 @@ async fn get_application_info_by_bundle_id(bundle_id: String) -> Result<Option<S
 }
 
 #[tauri::command]
+async fn get_application_info_by_name(name: String) -> Result<Option<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let res = tauri::async_runtime::spawn_blocking(move || {
+            engine::get_application_info_by_name_json(&name)
+        }).await.map_err(|e| e.to_string())?;
+        Ok(res)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
 fn get_app_configs(
     handle: tauri::AppHandle,
 ) -> Result<std::collections::HashMap<String, AppConfig>, String> {
@@ -1633,6 +1648,7 @@ pub fn run() {
             get_running_applications,
             get_application_info_by_path,
             get_application_info_by_bundle_id,
+            get_application_info_by_name,
             sync_to_cloud,
             sync_from_cloud,
             get_kv,

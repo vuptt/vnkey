@@ -127,6 +127,7 @@ extern "C" {
     pub fn macos_get_application_info_by_path_json(path_cstr: *const c_char) -> *mut c_char;
     #[cfg(target_os = "macos")]
     pub fn macos_get_application_info_by_bundle_id_json(bundle_id_cstr: *const c_char) -> *mut c_char;
+    pub fn macos_get_application_info_by_name_json(name_cstr: *const c_char) -> *mut c_char;
 }
 
 pub fn init() {
@@ -346,8 +347,13 @@ pub fn get_application_info_by_path_json(path: &str) -> Option<String> {
 
 #[cfg(target_os = "macos")]
 pub fn get_application_info_by_bundle_id_json(bundle_id: &str) -> Option<String> {
-    let id_c = CString::new(bundle_id).ok()?;
+    let id_c = std::ffi::CString::new(bundle_id).ok()?;
     unsafe { take_string(macos_get_application_info_by_bundle_id_json(id_c.as_ptr())) }
+}
+
+pub fn get_application_info_by_name_json(name: &str) -> Option<String> {
+    let name_c = std::ffi::CString::new(name).ok()?;
+    unsafe { take_string(macos_get_application_info_by_name_json(name_c.as_ptr())) }
 }
 
 #[cfg(test)]

@@ -91,4 +91,16 @@ extern "C" {
             return macos_get_application_info_by_path_json([path UTF8String]);
         }
     }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    char* macos_get_application_info_by_name_json(const char* name_cstr) {
+        @autoreleasepool {
+            NSString* name = [NSString stringWithUTF8String:name_cstr];
+            NSString* path = [[NSWorkspace sharedWorkspace] fullPathForApplication:name];
+            if (!path) return NULL;
+            return macos_get_application_info_by_path_json([path UTF8String]);
+        }
+    }
+#pragma clang diagnostic pop
 }

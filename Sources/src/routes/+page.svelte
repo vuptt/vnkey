@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { open } from "@tauri-apps/plugin-dialog";
 
   interface Settings {
     language: number;
@@ -130,9 +131,42 @@
 
   // App-specific settings state
   let appConfigs = $state<Record<string, any>>({});
-  let selectedApp = $state<string | null>(null);
-  let newAppName = $state("");
   let appConfigError = $state("");
+  let newAppName = $state("");
+  let selectedApp = $state("");
+  let appIcons = $state<Record<string, string>>({});
+
+  $effect(() => {
+    if (appConfigs && Object.keys(appConfigs).length > 0) {
+      if (!selectedApp || !appConfigs[selectedApp]) {
+        selectedApp = Object.keys(appConfigs)[0];
+      }
+    }
+  });
+
+  $effect(() => {
+    if (activeTab === 6) {
+      loadAppIcons();
+    }
+  });
+
+  async function loadAppIcons() {
+    for (const appName of Object.keys(appConfigs)) {
+      if (!appIcons[appName]) {
+        try {
+          const jsonStr: string | null = await invoke("get_application_info_by_name", { name: appName });
+          if (jsonStr) {
+            const info = JSON.parse(jsonStr);
+            if (info && info.icon) {
+              appIcons[appName] = info.icon;
+            }
+          }
+        } catch (e) {
+          console.error(`Failed to load icon for ${appName}`, e);
+        }
+      }
+    }
+  }
 
   // Cloud Sync state
   let cloudAccountId = $state("");
@@ -315,11 +349,59 @@
     try {
       appConfigs = await invoke<Record<string, any>>("get_app_configs");
       if (selectedApp && !appConfigs[selectedApp]) {
-        selectedApp = null;
+        selectedApp = "";
       }
     } catch (e) {
       console.error("Failed to load app configs:", e);
     }
+  }
+
+  let showAppSelectorModal = $state(false);
+  let isLoadingApps = $state(false);
+  let runningAppsList = $state<{bundle_id: string, name: string, icon: string}[]>([]);
+
+  async function openAppSelector() {
+    showAppSelectorModal = true;
+    isLoadingApps = true;
+    try {
+      let jsonStr: string | null = await invoke("get_running_applications");
+      if (jsonStr) {
+        runningAppsList = JSON.parse(jsonStr);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      isLoadingApps = false;
+    }
+  }
+
+  async function browseAppFromFolder() {
+    try {
+      const selectedPath = await open({
+        directory: false,
+        multiple: false,
+        filters: [{ name: 'Mac App', extensions: ['app'] }]
+      });
+      if (selectedPath && typeof selectedPath === 'string') {
+        let jsonStr: string | null = await invoke("get_application_info_by_path", { path: selectedPath });
+        if (jsonStr) {
+          let appInfo = JSON.parse(jsonStr);
+          if (appInfo && appInfo.name) {
+            newAppName = appInfo.name;
+            addAppConfig();
+            showAppSelectorModal = false;
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function addAppConfigByName(name: string) {
+    newAppName = name;
+    addAppConfig();
+    showAppSelectorModal = false;
   }
 
   async function addAppConfig() {
@@ -382,7 +464,7 @@
     try {
       await invoke("remove_app_config", { appName: name });
       if (selectedApp === name) {
-        selectedApp = null;
+        selectedApp = "";
       }
       await loadAppConfigs();
     } catch (e) {
@@ -1744,15 +1826,7 @@
             <!-- Left Pane: List of Apps -->
             <div class="apps-sidebar">
               <div class="apps-sidebar-header">
-                <div class="apps-search-box">
-                  <input
-                    type="text"
-                    placeholder="Tên app (Ví dụ: Terminal)"
-                    bind:value={newAppName}
-                    onkeydown={(e) => e.key === 'Enter' && addAppConfig()}
-                  />
-                  <button class="btn btn-primary" onclick={addAppConfig} style="padding: 6px 12px; font-size: 13px;">+</button>
-                </div>
+                <button class="btn btn-primary w-full" onclick={openAppSelector} style="padding: 10px; font-size: 13px;">+ Thêm ứng dụng...</button>
                 {#if appConfigError}
                   <p class="form-error mt-5" style="font-size: 11px; margin: 4px 0 0 0;">{appConfigError}</p>
                 {/if}
@@ -1772,7 +1846,14 @@
                     role="button"
                     tabindex="0"
                   >
-                    <span>{appName}</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      {#if appIcons[appName]}
+                        <img src="data:image/png;base64,{appIcons[appName]}" width="20" height="20" style="border-radius: 4px; object-fit: contain;" alt="" />
+                      {:else}
+                        <div style="width: 20px; height: 20px; border-radius: 4px; background: rgba(128,128,128,0.2);"></div>
+                      {/if}
+                      <span>{appName}</span>
+                    </div>
                     <button
                       class="app-item-delete"
                       onclick={(e) => {
@@ -1802,7 +1883,7 @@
                   <div class="app-section">
                     <h4>Cơ bản</h4>
                     
-                    <label class="form-group-inline">
+                    <label class="form-group-stacked">
                       <span>Ngôn ngữ mặc định</span>
                       <select value={appConfigs[selectedApp].language} onchange={(e) => updateAppConfigField('language', parseInt((e.target as HTMLSelectElement).value))}>
                         <option value={1}>Tiếng Việt</option>
@@ -1810,7 +1891,7 @@
                       </select>
                     </label>
 
-                    <label class="form-group-inline mt-15">
+                    <label class="form-group-stacked mt-15">
                       <span>Kiểu gõ</span>
                       <select value={appConfigs[selectedApp].input_type} onchange={(e) => updateAppConfigField('input_type', parseInt((e.target as HTMLSelectElement).value))}>
                         <option value={0}>Telex</option>
@@ -1820,7 +1901,7 @@
                       </select>
                     </label>
 
-                    <label class="form-group-inline mt-15">
+                    <label class="form-group-stacked mt-15">
                       <span>Bảng mã</span>
                       <select value={appConfigs[selectedApp].code_table} onchange={(e) => updateAppConfigField('code_table', parseInt((e.target as HTMLSelectElement).value))}>
                         <option value={0}>Unicode dựng sẵn</option>
@@ -2004,6 +2085,43 @@
         </section>
       {/if}
     </main>
+
+    <!-- App Selector Modal -->
+    {#if showAppSelectorModal}
+      <div class="app-modal-overlay" onclick={(e) => e.target === e.currentTarget && (showAppSelectorModal = false)} role="dialog" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && (showAppSelectorModal = false)}>
+        <div class="app-modal-content">
+          <div class="app-modal-header">
+            <h3>Thêm ứng dụng</h3>
+            <button class="app-modal-close" aria-label="Đóng" onclick={() => showAppSelectorModal = false}>&times;</button>
+          </div>
+          
+          <button class="btn btn-secondary w-full mb-15" onclick={browseAppFromFolder}>
+            Duyệt từ thư mục Application...
+          </button>
+          
+          <h4 style="margin-bottom: 10px; font-size: 13px; color: var(--text-secondary); font-weight: 500;">Hoặc chọn từ ứng dụng đang chạy:</h4>
+          
+          <div class="running-apps-list">
+            {#if isLoadingApps}
+              <div style="padding: 20px; text-align: center; grid-column: 1 / -1; color: var(--text-secondary);">
+                Đang tải danh sách...
+              </div>
+            {:else if runningAppsList.length === 0}
+              <div style="padding: 20px; text-align: center; grid-column: 1 / -1; color: var(--text-secondary);">
+                Không tìm thấy ứng dụng.
+              </div>
+            {:else}
+              {#each runningAppsList as app}
+                <div class="running-app-item" onclick={() => addAppConfigByName(app.name)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && addAppConfigByName(app.name)}>
+                  <img src="data:image/png;base64,{app.icon}" width="48" height="48" alt={app.name} />
+                  <span title={app.name}>{app.name}</span>
+                </div>
+              {/each}
+            {/if}
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 
 <style>
@@ -2531,14 +2649,124 @@
     font-size: 13.5px;
     color: var(--text-primary);
     font-weight: 500;
-    width: 80px;
+    white-space: nowrap;
     flex-shrink: 0;
   }
 
   .form-group-inline select {
-    width: auto;
-    min-width: 240px;
+    flex: 0 0 160px;
+    min-width: 0;
   }
+
+  .form-group-stacked {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-group-stacked > span:first-child {
+    font-size: 13.5px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .form-group-stacked select {
+    width: 100%;
+  }
+
+  /* App Selector Modal */
+  .app-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+  }
+
+  .app-modal-content {
+    background: var(--bg-card);
+    padding: 24px;
+    border-radius: 12px;
+    width: 480px;
+    max-width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    border: 1px solid var(--border-color);
+  }
+
+  .app-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .app-modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .app-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .running-apps-list {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    margin-bottom: 5px;
+    padding-right: 8px;
+  }
+
+  .running-app-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .running-app-item:hover {
+    border-color: var(--accent-color, #007bff);
+    background: var(--bg-hover, rgba(0,123,255,0.05));
+  }
+
+  .running-app-item img {
+    margin-bottom: 8px;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  .running-app-item span {
+    font-size: 12px;
+    color: var(--text-primary);
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
 
   select {
     width: 100%;
