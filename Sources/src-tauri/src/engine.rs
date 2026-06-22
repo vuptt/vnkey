@@ -49,7 +49,7 @@ extern "C" {
     fn vnkey_add_macro(shortcut: *const c_char, content: *const c_char) -> bool;
     fn vnkey_delete_macro(shortcut: *const c_char) -> bool;
     fn vnkey_on_code_table_changed();
-    fn vnkey_save_macros(path: *const c_char);
+
     fn vnkey_load_macros(path: *const c_char);
     fn vnkey_set_custom_english_words(content: *const c_char);
     fn vnkey_default_english_words() -> *mut c_char;
@@ -122,6 +122,8 @@ extern "C" {
     #[cfg(target_os = "macos")]
     pub fn macos_get_frontmost_app_bundle_id() -> *mut c_char;
     #[cfg(target_os = "macos")]
+    pub fn macos_get_frontmost_app_name() -> *mut c_char;
+    #[cfg(target_os = "macos")]
     pub fn macos_get_running_applications_json() -> *mut c_char;
     #[cfg(target_os = "macos")]
     pub fn macos_get_application_info_by_path_json(path_cstr: *const c_char) -> *mut c_char;
@@ -177,12 +179,6 @@ pub fn delete_macro(shortcut: &str) -> bool {
 
 pub fn code_table_changed() {
     unsafe { vnkey_on_code_table_changed() };
-}
-
-pub fn save_macros(path: &str) {
-    if let Ok(path) = CString::new(path) {
-        unsafe { vnkey_save_macros(path.as_ptr()) };
-    }
 }
 
 pub fn load_macros(path: &str) {
@@ -332,6 +328,11 @@ pub fn macos_set_clipboard_enabled_val(enabled: bool) {
 #[cfg(target_os = "macos")]
 pub fn get_frontmost_app_bundle_id() -> Option<String> {
     unsafe { take_string(macos_get_frontmost_app_bundle_id()) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_frontmost_app_name() -> Option<String> {
+    unsafe { take_string(macos_get_frontmost_app_name()) }
 }
 
 #[cfg(target_os = "macos")]

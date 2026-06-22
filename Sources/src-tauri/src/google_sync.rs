@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::sync::Arc;
+
 use crate::db;
 use crate::cloud_sync::{get_sync_payload, apply_sync_payload};
 

@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection, Result as SqlResult};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,

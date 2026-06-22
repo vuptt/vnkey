@@ -151,18 +151,18 @@
   });
 
   async function loadAppIcons() {
-    for (const appName of Object.keys(appConfigs)) {
-      if (!appIcons[appName]) {
+    for (const bundleId of Object.keys(appConfigs)) {
+      if (!appIcons[bundleId]) {
         try {
-          const jsonStr: string | null = await invoke("get_application_info_by_name", { name: appName });
+          const jsonStr: string | null = await invoke("get_application_info_by_bundle_id", { bundleId });
           if (jsonStr) {
             const info = JSON.parse(jsonStr);
             if (info && info.icon) {
-              appIcons[appName] = info.icon;
+              appIcons[bundleId] = info.icon;
             }
           }
         } catch (e) {
-          console.error(`Failed to load icon for ${appName}`, e);
+          console.error(`Failed to load icon for ${bundleId}`, e);
         }
       }
     }
@@ -386,9 +386,8 @@
         let jsonStr: string | null = await invoke("get_application_info_by_path", { path: selectedPath });
         if (jsonStr) {
           let appInfo = JSON.parse(jsonStr);
-          if (appInfo && appInfo.name) {
-            newAppName = appInfo.name;
-            addAppConfig();
+          if (appInfo && appInfo.bundle_id && appInfo.name) {
+            addAppConfig(appInfo.bundle_id, appInfo.name);
             showAppSelectorModal = false;
           }
         }
@@ -398,20 +397,18 @@
     }
   }
 
-  function addAppConfigByName(name: string) {
-    newAppName = name;
-    addAppConfig();
+  function addAppConfigByApp(bundleId: string, name: string) {
+    addAppConfig(bundleId, name);
     showAppSelectorModal = false;
   }
 
-  async function addAppConfig() {
+  async function addAppConfig(bundleId: string, name: string) {
     appConfigError = "";
-    const name = newAppName.trim();
-    if (!name) {
-      appConfigError = "Tên ứng dụng không được để trống.";
+    if (!bundleId) {
+      appConfigError = "Mã ứng dụng (Bundle ID) không hợp lệ.";
       return;
     }
-    if (appConfigs[name]) {
+    if (appConfigs[bundleId]) {
       appConfigError = "Ứng dụng này đã được cấu hình.";
       return;
     }
@@ -434,13 +431,13 @@
       allow_consonant_zfwj: settings.allow_consonant_zfwj,
       quick_start_consonant: settings.quick_start_consonant,
       quick_end_consonant: settings.quick_end_consonant,
+      name: name,
     };
 
     try {
-      await invoke("save_app_config", { appName: name, config: defaultAppConfig });
-      newAppName = "";
+      await invoke("save_app_config", { bundleId, config: defaultAppConfig });
       await loadAppConfigs();
-      selectedApp = name;
+      selectedApp = bundleId;
     } catch (e: any) {
       appConfigError = e.toString();
     }
@@ -450,25 +447,25 @@
     if (!selectedApp || !appConfigs[selectedApp]) return;
     const config = { ...appConfigs[selectedApp], [field]: value };
     try {
-      await invoke("save_app_config", { appName: selectedApp, config });
+      await invoke("save_app_config", { bundleId: selectedApp, config });
       appConfigs[selectedApp] = config;
     } catch (e) {
       console.error("Failed to update app config field:", e);
     }
   }
 
-  async function deleteAppConfig(name: string) {
+  async function deleteAppConfig(bundleId: string, name: string) {
     if (!confirm(`Bạn có chắc chắn muốn xóa cấu hình riêng cho ứng dụng "${name}"?`)) {
       return;
     }
     try {
-      await invoke("remove_app_config", { appName: name });
-      if (selectedApp === name) {
+      await invoke("remove_app_config", { bundleId });
+      if (selectedApp === bundleId) {
         selectedApp = "";
       }
       await loadAppConfigs();
-    } catch (e) {
-      console.error("Failed to remove app config:", e);
+    } catch (e: any) {
+      appConfigError = e.toString();
     }
   }
 
@@ -1399,8 +1396,8 @@
                 </select>
               </label>
 
-              <div class="form-group mt-15">
-                <div class="form-label">Tùy chọn văn bản đầu ra</div>
+              <div class="form-group mt-15" style="border-top: 1px solid var(--border-color);">
+                <h3>Tùy chọn văn bản đầu ra</h3>
                 <div class="toggles-grid-compact mt-5">
                   <label class="toggle-container">
                     <span class="toggle-text">Chuyển sang CHỮ HOA</span>
@@ -1434,7 +1431,7 @@
                     </div>
                   </label>
 
-                  <label class="toggle-container pt-5" style="border-top: 1px solid var(--border-color);">
+                  <label class="toggle-container pt-5">
                     <span class="toggle-text font-bold">Loại bỏ hoàn toàn dấu Tiếng Việt</span>
                     <div class="switch">
                       <input type="checkbox" checked={settings.convert_tool_remove_mark === 1} onchange={(e) => handleCheckboxChange('convert_tool_remove_mark', (e.target as HTMLInputElement).checked)} />
@@ -1542,7 +1539,7 @@
             
             <div class="form-group mb-15">
               <label for="cloud-sync-password">Mật khẩu mã hoá (E2EE)</label>
-              <input type="password" id="cloud-sync-password" bind:value={cloudSyncPassword} onchange={saveCloudSettings} placeholder="Bắt buộc để bảo vệ dữ liệu" class="app-search-input" />
+              <input type="password" id="cloud-sync-password" bind:value={cloudSyncPassword} onchange={saveCloudSettings} placeholder="Bắt buộc để bảo vệ dữ liệu" class="form-input" />
               <p style="font-size: 12px; color: #666; margin-top: 4px;">Dữ liệu sẽ được mã hoá bằng mật khẩu này trước khi tải lên. Nếu quên, bạn sẽ mất dữ liệu đồng bộ.</p>
             </div>
 
@@ -1579,19 +1576,19 @@
               <div class="r2-section" style="padding-top: 10px; border-top: 1px solid var(--border-color);">
                 <div class="form-group mb-15">
                   <label for="cloud-account-id">Account ID</label>
-                  <input type="text" id="cloud-account-id" bind:value={cloudAccountId} onchange={saveCloudSettings} placeholder="Cloudflare Account ID" class="app-search-input" />
+                  <input type="text" id="cloud-account-id" bind:value={cloudAccountId} onchange={saveCloudSettings} placeholder="Cloudflare Account ID" class="form-input" />
                 </div>
                 <div class="form-group mb-15">
                   <label for="cloud-access-key">Access Key ID</label>
-                  <input type="text" id="cloud-access-key" bind:value={cloudAccessKey} onchange={saveCloudSettings} placeholder="R2 Access Key" class="app-search-input" />
+                  <input type="text" id="cloud-access-key" bind:value={cloudAccessKey} onchange={saveCloudSettings} placeholder="R2 Access Key" class="form-input" />
                 </div>
                 <div class="form-group mb-15">
                   <label for="cloud-secret-key">Secret Access Key</label>
-                  <input type="password" id="cloud-secret-key" bind:value={cloudSecretKey} onchange={saveCloudSettings} placeholder="R2 Secret Key" class="app-search-input" />
+                  <input type="password" id="cloud-secret-key" bind:value={cloudSecretKey} onchange={saveCloudSettings} placeholder="R2 Secret Key" class="form-input" />
                 </div>
                 <div class="form-group mb-15">
                   <label for="cloud-bucket-name">Bucket Name</label>
-                  <input type="text" id="cloud-bucket-name" bind:value={cloudBucketName} onchange={saveCloudSettings} placeholder="vnkey-sync" class="app-search-input" />
+                  <input type="text" id="cloud-bucket-name" bind:value={cloudBucketName} onchange={saveCloudSettings} placeholder="vnkey-sync" class="form-input" />
                 </div>
                 <div class="flex-actions mt-15" style="display: flex; gap: 10px;">
                   <button class="btn btn-primary" onclick={syncToCloud} disabled={isCloudSyncing}>
@@ -1833,32 +1830,32 @@
               </div>
 
               <div class="apps-list">
-                {#each Object.keys(appConfigs) as appName}
+                {#each Object.keys(appConfigs) as bundleId}
                   <div
                     class="app-item"
-                    class:active={selectedApp === appName}
-                    onclick={() => selectedApp = appName}
+                    class:active={selectedApp === bundleId}
+                    onclick={() => selectedApp = bundleId}
                     onkeydown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
-                        selectedApp = appName;
+                        selectedApp = bundleId;
                       }
                     }}
                     role="button"
                     tabindex="0"
                   >
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      {#if appIcons[appName]}
-                        <img src="data:image/png;base64,{appIcons[appName]}" width="20" height="20" style="border-radius: 4px; object-fit: contain;" alt="" />
+                      {#if appIcons[bundleId]}
+                        <img src="data:image/png;base64,{appIcons[bundleId]}" width="20" height="20" style="border-radius: 4px; object-fit: contain;" alt="" />
                       {:else}
                         <div style="width: 20px; height: 20px; border-radius: 4px; background: rgba(128,128,128,0.2);"></div>
                       {/if}
-                      <span>{appName}</span>
+                      <span>{appConfigs[bundleId].name || bundleId}</span>
                     </div>
                     <button
                       class="app-item-delete"
                       onclick={(e) => {
                         e.stopPropagation();
-                        deleteAppConfig(appName);
+                        deleteAppConfig(bundleId, appConfigs[bundleId].name || bundleId);
                       }}
                       aria-label="Xóa cấu hình"
                     >×</button>
@@ -1875,7 +1872,7 @@
             <div class="apps-content">
               {#if selectedApp && appConfigs[selectedApp]}
                 <div class="apps-header">
-                  <h3>Cấu hình cho {selectedApp}</h3>
+                  <h3>Cấu hình cho {appConfigs[selectedApp]?.name || selectedApp}</h3>
                 </div>
 
                 <div class="apps-sections-grid">
@@ -2112,7 +2109,7 @@
               </div>
             {:else}
               {#each runningAppsList as app}
-                <div class="running-app-item" onclick={() => addAppConfigByName(app.name)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && addAppConfigByName(app.name)}>
+                <div class="running-app-item" onclick={() => addAppConfigByApp(app.bundle_id, app.name)} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && addAppConfigByApp(app.bundle_id, app.name)}>
                   <img src="data:image/png;base64,{app.icon}" width="48" height="48" alt={app.name} />
                   <span title={app.name}>{app.name}</span>
                 </div>
@@ -2644,13 +2641,29 @@
     gap: 12px;
   }
 
-  .form-group-inline label,
   .form-group-inline > span:first-child {
     font-size: 13.5px;
     color: var(--text-primary);
     font-weight: 500;
     white-space: nowrap;
     flex-shrink: 0;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 13px;
+    box-sizing: border-box;
+    transition: all 0.2s;
+  }
+
+  .form-input:focus {
+    border-color: var(--color-accent);
+    outline: none;
   }
 
   .form-group-inline select {
@@ -2762,6 +2775,7 @@
     color: var(--text-primary);
     word-break: break-word;
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;

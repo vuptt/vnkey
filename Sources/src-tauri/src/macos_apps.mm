@@ -11,6 +11,16 @@ extern "C" {
         }
     }
 
+    char* macos_get_frontmost_app_name() {
+        @autoreleasepool {
+            NSRunningApplication* app = [[NSWorkspace sharedWorkspace] frontmostApplication];
+            if (!app) return NULL;
+            NSString* name = [app localizedName];
+            if (!name) return NULL;
+            return strdup([name UTF8String]);
+        }
+    }
+
     static NSString* getBase64Icon(NSImage* icon) {
         if (!icon) return @"";
         NSSize newSize = NSMakeSize(64, 64);

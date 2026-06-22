@@ -153,7 +153,7 @@ fn process_new_clipboard_item(handle: &tauri::AppHandle) -> Result<(), Box<dyn s
     #[cfg(target_os = "macos")]
     {
         // 1. Read app info
-        let app_name = engine::get_frontmost_app_bundle_id();
+        let app_name = engine::get_frontmost_app_name(); // Keep this as name for clipboard items
         let app_pid = engine::get_frontmost_app_pid();
 
         // 2. Read content type and data
@@ -1264,6 +1264,7 @@ pub struct AppConfig {
     pub allow_consonant_zfwj: i32,
     pub quick_start_consonant: i32,
     pub quick_end_consonant: i32,
+    pub name: Option<String>,
 }
 
 fn get_app_settings_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
@@ -1356,12 +1357,12 @@ fn get_app_configs(
 
 #[tauri::command]
 fn save_app_config(
-    app_name: String,
+    bundle_id: String,
     config: AppConfig,
     handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let mut configs = get_app_configs(handle.clone()).unwrap_or_default();
-    configs.insert(app_name.clone(), config);
+    configs.insert(bundle_id.clone(), config);
     if let Some(path) = get_app_settings_path(&handle) {
         if let Ok(content) = serde_json::to_string_pretty(&configs) {
             std::fs::write(path, content).map_err(|e| e.to_string())?;
@@ -1370,8 +1371,8 @@ fn save_app_config(
     #[cfg(target_os = "macos")]
     {
         if let Some(current_app) = engine::get_frontmost_app_bundle_id() {
-            if current_app == app_name {
-                apply_app_config_by_name(&handle, &current_app);
+            if current_app == bundle_id {
+                apply_app_config_by_bundle_id(&handle, &current_app);
             }
         }
     }
@@ -1379,9 +1380,9 @@ fn save_app_config(
 }
 
 #[tauri::command]
-fn remove_app_config(app_name: String, handle: tauri::AppHandle) -> Result<(), String> {
+fn remove_app_config(bundle_id: String, handle: tauri::AppHandle) -> Result<(), String> {
     let mut configs = get_app_configs(handle.clone()).unwrap_or_default();
-    configs.remove(&app_name);
+    configs.remove(&bundle_id);
     if let Some(path) = get_app_settings_path(&handle) {
         if let Ok(content) = serde_json::to_string_pretty(&configs) {
             std::fs::write(path, content).map_err(|e| e.to_string())?;
@@ -1390,15 +1391,15 @@ fn remove_app_config(app_name: String, handle: tauri::AppHandle) -> Result<(), S
     #[cfg(target_os = "macos")]
     {
         if let Some(current_app) = engine::get_frontmost_app_bundle_id() {
-            if current_app == app_name {
-                apply_app_config_by_name(&handle, &current_app);
+            if current_app == bundle_id {
+                apply_app_config_by_bundle_id(&handle, &current_app);
             }
         }
     }
     Ok(())
 }
 
-fn apply_app_config_by_name(handle: &tauri::AppHandle, app_name: &str) {
+fn apply_app_config_by_bundle_id(handle: &tauri::AppHandle, bundle_id: &str) {
     let mut applied_config: Option<AppConfig> = None;
     if let Some(path) = get_app_settings_path(handle) {
         if path.exists() {
@@ -1406,7 +1407,7 @@ fn apply_app_config_by_name(handle: &tauri::AppHandle, app_name: &str) {
                 if let Ok(configs) =
                     serde_json::from_str::<std::collections::HashMap<String, AppConfig>>(&content)
                 {
-                    if let Some(config) = configs.get(app_name) {
+                    if let Some(config) = configs.get(bundle_id) {
                         applied_config = Some(config.clone());
                     }
                 }
@@ -1687,7 +1688,7 @@ pub fn run() {
                             };
                             if should_update {
                                 last_app = Some(current_app.clone());
-                                apply_app_config_by_name(&handle_poll, &current_app);
+                                apply_app_config_by_bundle_id(&handle_poll, &current_app);
                             }
                         }
                     }

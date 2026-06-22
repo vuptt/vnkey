@@ -50,13 +50,6 @@
           <span class="timeline-desc">Nhấp nút <strong>Cấp quyền trợ năng</strong> để mở Cài đặt Hệ thống. Tìm <strong>VNKey</strong> và bật công tắc.</span>
         </div>
       </div>
-      <div class="timeline-item">
-        <div class="timeline-badge">2</div>
-        <div class="timeline-content">
-          <span class="timeline-title">Cấp quyền Đĩa cứng (Tùy chọn)</span>
-          <span class="timeline-desc">Mở Cài đặt > Quyền riêng tư > <strong>Toàn quyền truy cập Đĩa</strong> và thêm VNKey nếu bạn muốn dùng tính năng Bảng nhớ (Clipboard).</span>
-        </div>
-      </div>
     </div>
     
     <p class="note">
@@ -131,6 +124,11 @@
     border-radius: 20px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     object-fit: contain;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .logo:hover {
+    transform: scale(1.1);
   }
 
   h1 {
