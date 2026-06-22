@@ -980,25 +980,25 @@
           <div class="grid-2col">
             <div class="card">
               <h3>Cơ bản</h3>
-              <div class="form-group-inline">
-                <label for="input-type">Kiểu gõ</label>
-                <select id="input-type" value={settings.input_type} onchange={(e) => handleSelectChange('input_type', parseInt((e.target as HTMLSelectElement).value))}>
+              <label class="form-group-inline">
+                <span>Kiểu gõ</span>
+                <select value={settings.input_type} onchange={(e) => handleSelectChange('input_type', parseInt((e.target as HTMLSelectElement).value))}>
                   <option value={0}>Telex</option>
                   <option value={1}>VNI</option>
                   <option value={2}>Simple Telex 1</option>
                   <option value={3}>Simple Telex 2</option>
                 </select>
-              </div>
-              <div class="form-group-inline mt-15">
-                <label for="code-table">Bảng mã</label>
-                <select id="code-table" value={settings.code_table} onchange={(e) => handleSelectChange('code_table', parseInt((e.target as HTMLSelectElement).value))}>
+              </label>
+              <label class="form-group-inline mt-15">
+                <span>Bảng mã</span>
+                <select value={settings.code_table} onchange={(e) => handleSelectChange('code_table', parseInt((e.target as HTMLSelectElement).value))}>
                   <option value={0}>Unicode dựng sẵn</option>
                   <option value={1}>TCVN3 (ABC)</option>
                   <option value={2}>VNI Windows</option>
                   <option value={3}>Unicode tổ hợp</option>
                   <option value={4}>Vietnamese Locale CP1258</option>
                 </select>
-              </div>
+              </label>
             </div>
 
             <!-- Hotkey Switcher Config Card -->
@@ -1289,16 +1289,16 @@
             <!-- Convert Settings & Options -->
             <div class="card">
               <h3>Cấu hình chuyển đổi</h3>
-              <div class="form-group">
-                <label for="convert-from">Bảng mã nguồn</label>
-                <select id="convert-from" value={settings.convert_tool_from_code} onchange={(e) => handleSelectChange('convert_tool_from_code', parseInt((e.target as HTMLSelectElement).value))}>
+              <label class="form-group">
+                <span>Bảng mã nguồn</span>
+                <select value={settings.convert_tool_from_code} onchange={(e) => handleSelectChange('convert_tool_from_code', parseInt((e.target as HTMLSelectElement).value))}>
                   <option value={0}>Unicode dựng sẵn</option>
                   <option value={1}>TCVN3 (ABC)</option>
                   <option value={2}>VNI Windows</option>
                   <option value={3}>Unicode tổ hợp</option>
                   <option value={4}>Vietnamese Locale CP1258</option>
                 </select>
-              </div>
+              </label>
 
               <div class="swap-button-container-vertical">
                 <button class="btn btn-secondary swap-btn-vertical" onclick={swapConvertCodes} title="Đảo bảng mã">
@@ -1306,16 +1306,16 @@
                 </button>
               </div>
 
-              <div class="form-group">
-                <label for="convert-to">Bảng mã đích</label>
-                <select id="convert-to" value={settings.convert_tool_to_code} onchange={(e) => handleSelectChange('convert_tool_to_code', parseInt((e.target as HTMLSelectElement).value))}>
+              <label class="form-group">
+                <span>Bảng mã đích</span>
+                <select value={settings.convert_tool_to_code} onchange={(e) => handleSelectChange('convert_tool_to_code', parseInt((e.target as HTMLSelectElement).value))}>
                   <option value={0}>Unicode dựng sẵn</option>
                   <option value={1}>TCVN3 (ABC)</option>
                   <option value={2}>VNI Windows</option>
                   <option value={3}>Unicode tổ hợp</option>
                   <option value={4}>Vietnamese Locale CP1258</option>
                 </select>
-              </div>
+              </label>
 
               <div class="form-group mt-15">
                 <div class="form-label">Tùy chọn văn bản đầu ra</div>
@@ -1802,34 +1802,34 @@
                   <div class="app-section">
                     <h4>Cơ bản</h4>
                     
-                    <div class="form-group-inline">
-                      <label for="app-lang">Ngôn ngữ mặc định</label>
-                      <select id="app-lang" value={appConfigs[selectedApp].language} onchange={(e) => updateAppConfigField('language', parseInt((e.target as HTMLSelectElement).value))}>
+                    <label class="form-group-inline">
+                      <span>Ngôn ngữ mặc định</span>
+                      <select value={appConfigs[selectedApp].language} onchange={(e) => updateAppConfigField('language', parseInt((e.target as HTMLSelectElement).value))}>
                         <option value={1}>Tiếng Việt</option>
                         <option value={0}>Tiếng Anh</option>
                       </select>
-                    </div>
+                    </label>
 
-                    <div class="form-group-inline mt-15">
-                      <label for="app-input-type">Kiểu gõ</label>
-                      <select id="app-input-type" value={appConfigs[selectedApp].input_type} onchange={(e) => updateAppConfigField('input_type', parseInt((e.target as HTMLSelectElement).value))}>
+                    <label class="form-group-inline mt-15">
+                      <span>Kiểu gõ</span>
+                      <select value={appConfigs[selectedApp].input_type} onchange={(e) => updateAppConfigField('input_type', parseInt((e.target as HTMLSelectElement).value))}>
                         <option value={0}>Telex</option>
                         <option value={1}>VNI</option>
                         <option value={2}>Simple Telex 1</option>
                         <option value={3}>Simple Telex 2</option>
                       </select>
-                    </div>
+                    </label>
 
-                    <div class="form-group-inline mt-15">
-                      <label for="app-code-table">Bảng mã</label>
-                      <select id="app-code-table" value={appConfigs[selectedApp].code_table} onchange={(e) => updateAppConfigField('code_table', parseInt((e.target as HTMLSelectElement).value))}>
+                    <label class="form-group-inline mt-15">
+                      <span>Bảng mã</span>
+                      <select value={appConfigs[selectedApp].code_table} onchange={(e) => updateAppConfigField('code_table', parseInt((e.target as HTMLSelectElement).value))}>
                         <option value={0}>Unicode dựng sẵn</option>
                         <option value={1}>TCVN3 (ABC)</option>
                         <option value={2}>VNI Windows</option>
                         <option value={3}>Unicode tổ hợp</option>
                         <option value={4}>Vietnamese Locale CP1258</option>
                       </select>
-                    </div>
+                    </label>
                   </div>
 
                   <!-- Section 2: Gõ dấu -->
@@ -2512,6 +2512,7 @@
   }
 
   .form-group label,
+  .form-group > span:first-child,
   .form-group .form-label {
     font-size: 12.5px;
     color: var(--text-secondary);
@@ -2525,7 +2526,8 @@
     gap: 12px;
   }
 
-  .form-group-inline label {
+  .form-group-inline label,
+  .form-group-inline > span:first-child {
     font-size: 13.5px;
     color: var(--text-primary);
     font-weight: 500;
@@ -2541,14 +2543,34 @@
   select {
     width: 100%;
     box-sizing: border-box;
-    padding: 12px 16px;
-    border-radius: 6px;
+    padding: 10px 36px 10px 14px;
+    border-radius: 8px;
     background-color: var(--bg-input);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
     outline: none;
     font-size: 13.5px;
     cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: all 0.2s ease;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px;
+  }
+
+  select:hover {
+    border-color: var(--text-secondary);
+  }
+
+  select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+  }
+
+  :global(.dark) select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ccc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   }
 
   /* toggle switch vanilla */
