@@ -166,19 +166,24 @@ pub async fn upload_sync_data(creds: &CloudCredentials, sync_password: &str) -> 
     let bucket = bucket.with_path_style();
 
     if let Some(data) = payloads.settings {
-        bucket.put_object("vnkey_sync_settings.enc", &data).await?;
+        let res = bucket.put_object("vnkey_sync_settings.enc", &data).await?;
+        if res.status_code() < 200 || res.status_code() >= 300 { return Err(format!("Lỗi tải lên (HTTP {})", res.status_code()).into()); }
     }
     if let Some(data) = payloads.english_dict {
-        bucket.put_object("vnkey_sync_english_dict.enc", &data).await?;
+        let res = bucket.put_object("vnkey_sync_english_dict.enc", &data).await?;
+        if res.status_code() < 200 || res.status_code() >= 300 { return Err(format!("Lỗi tải lên (HTTP {})", res.status_code()).into()); }
     }
     if let Some(data) = payloads.macros {
-        bucket.put_object("vnkey_sync_macros.enc", &data).await?;
+        let res = bucket.put_object("vnkey_sync_macros.enc", &data).await?;
+        if res.status_code() < 200 || res.status_code() >= 300 { return Err(format!("Lỗi tải lên (HTTP {})", res.status_code()).into()); }
     }
     if let Some(data) = payloads.clipboard {
-        bucket.put_object("vnkey_sync_clipboard.enc", &data).await?;
+        let res = bucket.put_object("vnkey_sync_clipboard.enc", &data).await?;
+        if res.status_code() < 200 || res.status_code() >= 300 { return Err(format!("Lỗi tải lên (HTTP {})", res.status_code()).into()); }
     }
     if let Some(data) = payloads.app_configs {
-        bucket.put_object("vnkey_sync_app_configs.enc", &data).await?;
+        let res = bucket.put_object("vnkey_sync_app_configs.enc", &data).await?;
+        if res.status_code() < 200 || res.status_code() >= 300 { return Err(format!("Lỗi tải lên (HTTP {})", res.status_code()).into()); }
     }
 
     Ok(())
@@ -201,11 +206,32 @@ pub async fn download_sync_data(creds: &CloudCredentials, sync_password: &str) -
     let bucket = Bucket::new(&creds.bucket_name, region, credentials)?;
     let bucket = bucket.with_path_style();
 
-    let settings = bucket.get_object("vnkey_sync_settings.enc").await.map(|r| r.bytes().to_vec()).ok();
-    let english_dict = bucket.get_object("vnkey_sync_english_dict.enc").await.map(|r| r.bytes().to_vec()).ok();
-    let macros = bucket.get_object("vnkey_sync_macros.enc").await.map(|r| r.bytes().to_vec()).ok();
-    let clipboard = bucket.get_object("vnkey_sync_clipboard.enc").await.map(|r| r.bytes().to_vec()).ok();
-    let app_configs = bucket.get_object("vnkey_sync_app_configs.enc").await.map(|r| r.bytes().to_vec()).ok();
+    macro_rules! get_s3_obj {
+        ($key:expr) => {
+            async {
+                let res = bucket.get_object($key).await.ok()?;
+                if res.status_code() == 403 || res.status_code() == 401 {
+                    None
+                } else if res.status_code() >= 200 && res.status_code() < 300 {
+                    Some(res.bytes().to_vec())
+                } else {
+                    None
+                }
+            }.await
+        }
+    }
+
+    // Để bắt lỗi 403 rõ ràng, ta thử gọi head_object hoặc get_object file đầu tiên
+    let first_res = bucket.get_object("vnkey_sync_settings.enc").await.map_err(|e| e.to_string())?;
+    if first_res.status_code() == 403 || first_res.status_code() == 401 {
+        return Err(format!("Sai thông tin xác thực R2 (HTTP {})", first_res.status_code()).into());
+    }
+
+    let settings = if first_res.status_code() >= 200 && first_res.status_code() < 300 { Some(first_res.bytes().to_vec()) } else { None };
+    let english_dict = get_s3_obj!("vnkey_sync_english_dict.enc");
+    let macros = get_s3_obj!("vnkey_sync_macros.enc");
+    let clipboard = get_s3_obj!("vnkey_sync_clipboard.enc");
+    let app_configs = get_s3_obj!("vnkey_sync_app_configs.enc");
 
     apply_sync_payloads(
         settings.as_deref(),

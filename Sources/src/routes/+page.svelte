@@ -840,8 +840,8 @@
 
   async function syncToCloud() {
     if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName || !cloudSyncPassword) {
-      cloudSyncError = true;
-      cloudSyncMessage = "Vui lòng nhập đầy đủ thông tin R2 và mật khẩu đồng bộ.";
+      cloudSyncError = false;
+      cloudSyncMessage = "";
       return;
     }
     isCloudSyncing = true;
@@ -867,8 +867,8 @@
 
   async function syncFromCloud() {
     if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName || !cloudSyncPassword) {
-      cloudSyncError = true;
-      cloudSyncMessage = "Vui lòng nhập đầy đủ thông tin R2 và mật khẩu đồng bộ.";
+      cloudSyncError = false;
+      cloudSyncMessage = "";
       return;
     }
     isCloudSyncing = true;
@@ -956,8 +956,8 @@
 
   async function syncToGdrive() {
     if (!cloudSyncPassword) {
-      cloudSyncError = true;
-      cloudSyncMessage = "Vui lòng nhập mật khẩu đồng bộ.";
+      cloudSyncError = false;
+      cloudSyncMessage = "";
       return;
     }
     isCloudSyncing = true;
@@ -977,8 +977,8 @@
 
   async function syncFromGdrive() {
     if (!cloudSyncPassword) {
-      cloudSyncError = true;
-      cloudSyncMessage = "Vui lòng nhập mật khẩu đồng bộ.";
+      cloudSyncError = false;
+      cloudSyncMessage = "";
       return;
     }
     isCloudSyncing = true;
@@ -3331,34 +3331,6 @@
   .dict-word:hover {
     transform: translateY(-1px);
     box-shadow: 0 3px 6px rgba(0,0,0,0.15);
-  }
-
-  .dict-word > span:first-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-  }
-
-  .dict-badge {
-    color: var(--text-secondary);
-    font-size: 9.5px;
-  }
-
-  .dict-delete {
-    width: 20px;
-    height: 20px;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-  }
-
-  .dict-delete:hover {
-    color: #ff453a;
-    background: rgba(255, 69, 58, 0.1);
   }
 
   .dict-empty {

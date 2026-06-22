@@ -14,7 +14,7 @@ use tauri::menu::{
     CheckMenuItemBuilder, Menu, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder,
 };
 use tauri::tray::{TrayIcon, TrayIconBuilder};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{Emitter, Manager};
 use std::sync::Mutex;
 static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
 

@@ -172,6 +172,8 @@ async fn find_file_id_in_folder(client: &Client, access_token: &str, folder_id: 
         if let Some(file) = list.files.first() {
             return Ok(Some(file.id.clone()));
         }
+    } else {
+        return Err(format!("Lỗi xác thực hoặc tìm kiếm file ({}): {}", res.status(), res.text().await.unwrap_or_default()));
     }
     Ok(None)
 }
@@ -180,7 +182,10 @@ async fn upload_file(client: &Client, access_token: &str, folder_id: &str, file_
     let existing_id = find_file_id_in_folder(client, access_token, folder_id, file_name).await?;
     if let Some(file_id) = existing_id {
         let url = format!("https://www.googleapis.com/upload/drive/v3/files/{}?uploadType=media", file_id);
-        client.patch(&url).bearer_auth(access_token).header("Content-Type", "application/octet-stream").body(payload).send().await.map_err(|e| e.to_string())?;
+        let res = client.patch(&url).bearer_auth(access_token).header("Content-Type", "application/octet-stream").body(payload).send().await.map_err(|e| e.to_string())?;
+        if !res.status().is_success() {
+            return Err(format!("Lỗi cập nhật file ({}): {}", res.status(), res.text().await.unwrap_or_default()));
+        }
     } else {
         let url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
         let metadata = serde_json::json!({
@@ -197,7 +202,10 @@ async fn upload_file(client: &Client, access_token: &str, folder_id: &str, file_
             .part("metadata", metadata_part)
             .part("file", file_part);
             
-        client.post(url).bearer_auth(access_token).multipart(form).send().await.map_err(|e| e.to_string())?;
+        let res = client.post(url).bearer_auth(access_token).multipart(form).send().await.map_err(|e| e.to_string())?;
+        if !res.status().is_success() {
+            return Err(format!("Lỗi tải lên ({}): {}", res.status(), res.text().await.unwrap_or_default()));
+        }
     }
     Ok(())
 }
@@ -210,6 +218,8 @@ async fn download_file(client: &Client, access_token: &str, folder_id: &str, fil
         if res.status().is_success() {
             let bytes = res.bytes().await.map_err(|e| e.to_string())?;
             return Ok(Some(bytes.to_vec()));
+        } else {
+            return Err(format!("Lỗi tải xuống ({}): {}", res.status(), res.text().await.unwrap_or_default()));
         }
     }
     Ok(None)
