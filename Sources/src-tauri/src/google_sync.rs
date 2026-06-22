@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 
 use crate::db;
-use crate::cloud_sync::{get_sync_payload, apply_sync_payload};
 
 const CLIENT_ID: Option<&str> = option_env!("GOOGLE_CLIENT_ID");
 const CLIENT_SECRET: Option<&str> = option_env!("GOOGLE_CLIENT_SECRET");
@@ -112,9 +111,6 @@ async fn get_valid_access_token() -> Result<String, String> {
         return Err("Chưa đăng nhập Google Drive".into());
     }
 
-    // Try to use the refresh token to get a fresh access token every time to avoid expiration issues.
-    // Or we could try the access token first, and if it fails (401), we refresh it.
-    // Let's just refresh it if we have a refresh token.
     if !refresh_token.is_empty() {
         if let Ok(new_access_token) = refresh_access_token(&refresh_token).await {
             db::db_set_kv("gdriveAccessToken", &new_access_token);
@@ -139,14 +135,38 @@ struct DriveFile {
     id: String,
 }
 
-async fn find_file_id(client: &Client, access_token: &str, file_name: &str) -> Result<Option<String>, String> {
-    let query = format!("name='{}' and trashed=false", file_name);
-    let url = format!("https://www.googleapis.com/drive/v3/files?q={}", urlencoding::encode(&query));
-    let res = client.get(&url)
-        .bearer_auth(access_token)
-        .send()
-        .await.map_err(|e| e.to_string())?;
+async fn get_or_create_vnkey_folder(client: &Client, access_token: &str) -> Result<String, String> {
+    let query = "name='VNKey' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+    let url = format!("https://www.googleapis.com/drive/v3/files?q={}", urlencoding::encode(query));
+    let res = client.get(&url).bearer_auth(access_token).send().await.map_err(|e| e.to_string())?;
     
+    if res.status().is_success() {
+        let list: DriveFileList = res.json().await.map_err(|e| e.to_string())?;
+        if let Some(folder) = list.files.first() {
+            return Ok(folder.id.clone());
+        }
+    }
+    
+    // Create folder
+    let url = "https://www.googleapis.com/drive/v3/files";
+    let metadata = serde_json::json!({
+        "name": "VNKey",
+        "mimeType": "application/vnd.google-apps.folder"
+    });
+    
+    let res = client.post(url).bearer_auth(access_token).json(&metadata).send().await.map_err(|e| e.to_string())?;
+    if res.status().is_success() {
+        let folder: DriveFile = res.json().await.map_err(|e| e.to_string())?;
+        Ok(folder.id)
+    } else {
+        Err("Không thể tạo thư mục VNKey trên Google Drive".into())
+    }
+}
+
+async fn find_file_id_in_folder(client: &Client, access_token: &str, folder_id: &str, file_name: &str) -> Result<Option<String>, String> {
+    let query = format!("name='{}' and '{}' in parents and trashed=false", file_name, folder_id);
+    let url = format!("https://www.googleapis.com/drive/v3/files?q={}", urlencoding::encode(&query));
+    let res = client.get(&url).bearer_auth(access_token).send().await.map_err(|e| e.to_string())?;
     if res.status().is_success() {
         let list: DriveFileList = res.json().await.map_err(|e| e.to_string())?;
         if let Some(file) = list.files.first() {
@@ -156,33 +176,16 @@ async fn find_file_id(client: &Client, access_token: &str, file_name: &str) -> R
     Ok(None)
 }
 
-pub async fn upload_sync_data_gdrive(sync_password: &str) -> Result<(), String> {
-    let access_token = get_valid_access_token().await?;
-    let client = Client::new();
-    let payload = get_sync_payload(sync_password).map_err(|e| e.to_string())?;
-    
-    let file_name = "vnkey_sync.dat";
-    let existing_id = find_file_id(&client, &access_token, file_name).await?;
-
+async fn upload_file(client: &Client, access_token: &str, folder_id: &str, file_name: &str, payload: Vec<u8>) -> Result<(), String> {
+    let existing_id = find_file_id_in_folder(client, access_token, folder_id, file_name).await?;
     if let Some(file_id) = existing_id {
-        // Update existing file
         let url = format!("https://www.googleapis.com/upload/drive/v3/files/{}?uploadType=media", file_id);
-        let res = client.patch(&url)
-            .bearer_auth(&access_token)
-            .header("Content-Type", "application/octet-stream")
-            .body(payload)
-            .send()
-            .await.map_err(|e| e.to_string())?;
-            
-        if !res.status().is_success() {
-            let error_text = res.text().await.unwrap_or_default();
-            return Err(format!("Lỗi khi cập nhật file: {}", error_text));
-        }
+        client.patch(&url).bearer_auth(access_token).header("Content-Type", "application/octet-stream").body(payload).send().await.map_err(|e| e.to_string())?;
     } else {
-        // Create new file
         let url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
         let metadata = serde_json::json!({
             "name": file_name,
+            "parents": [folder_id]
         });
         
         let metadata_part = reqwest::multipart::Part::text(metadata.to_string())
@@ -194,16 +197,45 @@ pub async fn upload_sync_data_gdrive(sync_password: &str) -> Result<(), String> 
             .part("metadata", metadata_part)
             .part("file", file_part);
             
-        let res = client.post(url)
-            .bearer_auth(&access_token)
-            .multipart(form)
-            .send()
-            .await.map_err(|e| e.to_string())?;
-            
-        if !res.status().is_success() {
-            let error_text = res.text().await.unwrap_or_default();
-            return Err(format!("Lỗi khi tạo file mới: {}", error_text));
+        client.post(url).bearer_auth(access_token).multipart(form).send().await.map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+async fn download_file(client: &Client, access_token: &str, folder_id: &str, file_name: &str) -> Result<Option<Vec<u8>>, String> {
+    let existing_id = find_file_id_in_folder(client, access_token, folder_id, file_name).await?;
+    if let Some(file_id) = existing_id {
+        let url = format!("https://www.googleapis.com/drive/v3/files/{}?alt=media", file_id);
+        let res = client.get(&url).bearer_auth(access_token).send().await.map_err(|e| e.to_string())?;
+        if res.status().is_success() {
+            let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+            return Ok(Some(bytes.to_vec()));
         }
+    }
+    Ok(None)
+}
+
+pub async fn upload_sync_data_gdrive(sync_password: &str) -> Result<(), String> {
+    let access_token = get_valid_access_token().await?;
+    let client = Client::new();
+    let folder_id = get_or_create_vnkey_folder(&client, &access_token).await?;
+    
+    let payloads = crate::cloud_sync::get_sync_payloads(sync_password).map_err(|e| e.to_string())?;
+    
+    if let Some(data) = payloads.settings {
+        upload_file(&client, &access_token, &folder_id, "vnkey_sync_settings.enc", data).await?;
+    }
+    if let Some(data) = payloads.english_dict {
+        upload_file(&client, &access_token, &folder_id, "vnkey_sync_english_dict.enc", data).await?;
+    }
+    if let Some(data) = payloads.macros {
+        upload_file(&client, &access_token, &folder_id, "vnkey_sync_macros.enc", data).await?;
+    }
+    if let Some(data) = payloads.clipboard {
+        upload_file(&client, &access_token, &folder_id, "vnkey_sync_clipboard.enc", data).await?;
+    }
+    if let Some(data) = payloads.app_configs {
+        upload_file(&client, &access_token, &folder_id, "vnkey_sync_app_configs.enc", data).await?;
     }
     
     Ok(())
@@ -212,24 +244,23 @@ pub async fn upload_sync_data_gdrive(sync_password: &str) -> Result<(), String> 
 pub async fn download_sync_data_gdrive(sync_password: &str) -> Result<(), String> {
     let access_token = get_valid_access_token().await?;
     let client = Client::new();
-    let file_name = "vnkey_sync.dat";
+    let folder_id = get_or_create_vnkey_folder(&client, &access_token).await?;
     
-    let existing_id = find_file_id(&client, &access_token, file_name).await?;
-    if let Some(file_id) = existing_id {
-        let url = format!("https://www.googleapis.com/drive/v3/files/{}?alt=media", file_id);
-        let res = client.get(&url)
-            .bearer_auth(&access_token)
-            .send()
-            .await.map_err(|e| e.to_string())?;
-            
-        if res.status().is_success() {
-            let bytes = res.bytes().await.map_err(|e| e.to_string())?;
-            apply_sync_payload(&bytes, sync_password).map_err(|e| e.to_string())?;
-            Ok(())
-        } else {
-            Err("Không thể tải file từ Google Drive".into())
-        }
-    } else {
-        Err("Không tìm thấy dữ liệu đồng bộ trên Google Drive".into())
-    }
+    let settings = download_file(&client, &access_token, &folder_id, "vnkey_sync_settings.enc").await?;
+    let english_dict = download_file(&client, &access_token, &folder_id, "vnkey_sync_english_dict.enc").await?;
+    let macros = download_file(&client, &access_token, &folder_id, "vnkey_sync_macros.enc").await?;
+    let clipboard = download_file(&client, &access_token, &folder_id, "vnkey_sync_clipboard.enc").await?;
+    let app_configs = download_file(&client, &access_token, &folder_id, "vnkey_sync_app_configs.enc").await?;
+    
+    crate::cloud_sync::apply_sync_payloads(
+        settings.as_deref(),
+        english_dict.as_deref(),
+        macros.as_deref(),
+        clipboard.as_deref(),
+        app_configs.as_deref(),
+        sync_password
+    ).map_err(|e| e.to_string())?;
+    
+    Ok(())
 }
+

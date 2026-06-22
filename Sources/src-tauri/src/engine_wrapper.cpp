@@ -124,9 +124,6 @@ extern "C" {
         }
     }
 
-    char* vnkey_default_english_words() {
-        return vnkey_copy_string(getDefaultEnglishWords());
-    }
 
     char* vnkey_convert_text(
         const char* source,

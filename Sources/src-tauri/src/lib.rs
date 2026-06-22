@@ -16,7 +16,11 @@ use tauri::menu::{
 use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{AppHandle, Emitter, Manager};
 use std::sync::Mutex;
-static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+static APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
+
+pub fn get_app_handle() -> Option<tauri::AppHandle> {
+    APP_HANDLE.get().cloned()
+}
 static TRAY_ICON: OnceLock<TrayIcon<tauri::Wry>> = OnceLock::new();
 static GRAY_ICON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
@@ -101,7 +105,6 @@ pub struct ClipboardItem {
 
 #[derive(serde::Serialize)]
 struct EnglishDictionary {
-    default_words: Vec<String>,
     custom_words: Vec<String>,
 }
 
@@ -387,7 +390,7 @@ fn get_settings() -> Settings {
     }
 }
 
-fn get_settings_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
+pub fn get_settings_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
     if let Ok(mut path) = handle.path().app_config_dir() {
         let _ = create_dir_all(&path);
         path.push("settings.json");
@@ -642,9 +645,7 @@ fn load_english_dict_from_disk(handle: &tauri::AppHandle) {
     if let Some(path) = get_english_dict_path(handle) {
         if path.exists() {
             if let Ok(content) = std::fs::read_to_string(&path) {
-                let default_content = engine::default_english_words();
-                let mut merged_words = parse_english_words(&default_content);
-                merged_words.extend(parse_english_words(&content));
+                let mut merged_words = parse_english_words(&content);
                 merged_words.sort_unstable();
                 merged_words.dedup();
                 db::db_insert_english_words(&merged_words);
@@ -654,21 +655,13 @@ fn load_english_dict_from_disk(handle: &tauri::AppHandle) {
     }
     
     let words = db::db_get_english_words();
-    if words.is_empty() {
-        let default_content = engine::default_english_words();
-        let default_words = parse_english_words(&default_content);
-        db::db_insert_english_words(&default_words);
-        engine::set_custom_english_words(&default_words.join("\n"));
-    } else {
-        engine::set_custom_english_words(&words.join("\n"));
-    }
+    engine::set_custom_english_words(&words.join("\n"));
 }
 
 #[tauri::command]
 fn get_english_dictionary() -> Result<EnglishDictionary, String> {
     let custom_words = db::db_get_english_words();
     Ok(EnglishDictionary {
-        default_words: Vec::new(),
         custom_words,
     })
 }
@@ -1037,7 +1030,7 @@ fn build_tray_menu<R: tauri::Runtime>(handle: &tauri::AppHandle<R>) -> Menu<R> {
 
     let clipboard_hotkey = CLIPBOARD_HOTKEY.load(std::sync::atomic::Ordering::Relaxed);
     let clipboard_hotkey_accel = hotkey_to_accelerator(clipboard_hotkey);
-    let mut clipboard_menu_builder = MenuItemBuilder::new("Bảng nhớ...").id("clipboard_history");
+    let mut clipboard_menu_builder = MenuItemBuilder::new("Bảng ghi nhớ...").id("clipboard_history");
     if CLIPBOARD_ENABLED.load(std::sync::atomic::Ordering::Relaxed) {
         if let Some(ref accel) = clipboard_hotkey_accel {
             clipboard_menu_builder = clipboard_menu_builder.accelerator(accel);
@@ -1047,7 +1040,7 @@ fn build_tray_menu<R: tauri::Runtime>(handle: &tauri::AppHandle<R>) -> Menu<R> {
         Ok(item) => item,
         Err(e) => {
             eprintln!("Failed to build clipboard_history menu item: {:?}", e);
-            MenuItemBuilder::new("Bảng nhớ...")
+            MenuItemBuilder::new("Bảng ghi nhớ...")
                 .id("clipboard_history")
                 .build(handle)
                 .unwrap()
@@ -1267,7 +1260,7 @@ pub struct AppConfig {
     pub name: Option<String>,
 }
 
-fn get_app_settings_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
+pub fn get_app_settings_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
     if let Ok(mut path) = handle.path().app_config_dir() {
         let _ = create_dir_all(&path);
         path.push("app_settings.json");
@@ -1284,7 +1277,28 @@ async fn get_running_applications() -> Result<Option<String>, String> {
         let res = tauri::async_runtime::spawn_blocking(|| {
             engine::get_running_applications_json()
         }).await.map_err(|e| e.to_string())?;
-        Ok(res)
+        
+        if let Some(json_str) = res {
+            if let Ok(mut apps) = serde_json::from_str::<Vec<serde_json::Value>>(&json_str) {
+                apps.retain(|app| {
+                    if let Some(name) = app.get("name").and_then(|n| n.as_str()) {
+                        if name.to_lowercase().contains("vnkey") {
+                            return false;
+                        }
+                    }
+                    if let Some(bundle_id) = app.get("bundle_id").and_then(|b| b.as_str()) {
+                        if bundle_id.to_lowercase().contains("vnkey") {
+                            return false;
+                        }
+                    }
+                    true
+                });
+                return Ok(Some(serde_json::to_string(&apps).unwrap_or(json_str)));
+            } else {
+                return Ok(Some(json_str));
+            }
+        }
+        Ok(None)
     }
     #[cfg(not(target_os = "macos"))]
     {

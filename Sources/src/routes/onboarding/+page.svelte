@@ -44,7 +44,9 @@
   <main class="content" data-tauri-drag-region>
     <div class="steps-timeline">
       <div class="timeline-item">
-        <div class="timeline-badge">1</div>
+        <div class="timeline-badge">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
         <div class="timeline-content">
           <span class="timeline-title">Cấp quyền Trợ năng</span>
           <span class="timeline-desc">Nhấp nút <strong>Cấp quyền trợ năng</strong> để mở Cài đặt Hệ thống. Tìm <strong>VNKey</strong> và bật công tắc.</span>
@@ -122,13 +124,24 @@
     width: 80px;
     height: 80px;
     border-radius: 20px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 24px rgba(0, 122, 255, 0.3);
     object-fit: contain;
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+    animation: pulse-glow 3s infinite alternate;
+  }
+
+  @keyframes pulse-glow {
+    0% {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 20px rgba(0, 122, 255, 0.2);
+    }
+    100% {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 35px rgba(0, 122, 255, 0.6);
+    }
   }
 
   .logo:hover {
     transform: scale(1.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 40px rgba(0, 122, 255, 0.8);
   }
 
   h1 {
@@ -176,27 +189,17 @@
     display: flex;
     gap: 12px;
     position: relative;
-  }
-
-  .timeline-item:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    left: 11px;
-    top: 24px;
-    bottom: -18px;
-    width: 2px;
-    background-color: var(--border-color);
+    align-items: center;
   }
 
   .timeline-badge {
-    width: 22px;
-    height: 22px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background-color: rgba(0, 122, 255, 0.1);
     border: 1px solid rgba(0, 122, 255, 0.2);
     color: var(--color-accent);
     font-weight: 700;
-    font-size: 11px;
     display: flex;
     align-items: center;
     justify-content: center;

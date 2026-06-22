@@ -14,6 +14,27 @@ lazy_static::lazy_static! {
     static ref DB_CONN: Mutex<Option<Connection>> = Mutex::new(None);
 }
 
+const INITIAL_ENGLISH_WORDS: &[&str] = &[
+    "alert", "are", "array", "async", "await", "base", "benchmark", "browser",
+    "buffer", "care", "case", "checkbox", "class", "coffee", "color", "dashboard",
+    "database", "destroy", "diff", "display", "docker", "download", "dropdown",
+    "error", "example", "expected", "export", "extension", "fare", "feature",
+    "feedback", "filter", "focus", "for", "fork", "form", "format", "framework",
+    "free", "google", "handler", "header", "helper", "her", "here", "history",
+    "host", "hover", "import", "index", "interface", "internet", "issue",
+    "javascript", "keyboard", "kubernetes", "library", "linux", "logger", "macos",
+    "meeting", "memory", "message", "more", "mouse", "network", "parameter",
+    "password", "port", "post", "process", "project", "promise", "proxy", "push",
+    "python", "query", "queue", "read", "regression", "release", "render",
+    "request", "response", "restart", "router", "rust", "screen", "search",
+    "server", "service", "share", "software", "sort", "source", "status",
+    "success", "support", "swift", "system", "target", "task", "terminal",
+    "text", "theme", "there", "these", "thread", "token", "tool", "true",
+    "typescript", "undefined", "url", "user", "variable", "version", "warning",
+    "was", "website", "websocket", "were", "where", "width", "wifi", "windows",
+    "word", "workflow", "write", "wrong"
+];
+
 // Generate a local encryption key (obfuscation key) for local DB encryption
 // This ensures data is not "raw" on disk.
 fn get_local_db_key() -> [u8; 32] {
@@ -99,6 +120,14 @@ pub fn init_db(app_config_dir: &Path) -> SqlResult<()> {
     )?;
 
     *DB_CONN.lock().unwrap() = Some(conn);
+
+    let initialized = db_get_kv("english_dict_initialized").unwrap_or_else(|| "0".to_string());
+    if initialized == "0" {
+        let words: Vec<String> = INITIAL_ENGLISH_WORDS.iter().map(|s| s.to_string()).collect();
+        db_insert_english_words(&words);
+        db_set_kv("english_dict_initialized", "1");
+    }
+
     Ok(())
 }
 
@@ -136,6 +165,8 @@ pub fn db_get_english_words() -> Vec<String> {
             }
         }
     }
+    words.sort();
+    words.dedup();
     words
 }
 

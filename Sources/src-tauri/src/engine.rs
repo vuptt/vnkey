@@ -52,7 +52,6 @@ extern "C" {
 
     fn vnkey_load_macros(path: *const c_char);
     fn vnkey_set_custom_english_words(content: *const c_char);
-    fn vnkey_default_english_words() -> *mut c_char;
     fn vnkey_convert_text(
         source: *const c_char,
         from_code: c_int,
@@ -219,9 +218,7 @@ pub fn set_custom_english_words(content: &str) {
     }
 }
 
-pub fn default_english_words() -> String {
-    unsafe { take_string(vnkey_default_english_words()).unwrap_or_default() }
-}
+
 
 #[cfg(target_os = "macos")]
 pub fn macos_status_icon(vietnamese: bool, gray: bool) -> Option<Vec<u8>> {

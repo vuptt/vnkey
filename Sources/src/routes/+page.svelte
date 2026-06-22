@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { slide } from "svelte/transition";
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { open } from "@tauri-apps/plugin-dialog";
@@ -101,7 +102,6 @@
   let searchQuery = $state("");
 
   // English Dictionary state
-  let defaultEnglishWords = $state<string[]>([]);
   let customEnglishWords = $state<string[]>([]);
   let dictionarySearch = $state("");
   let newEnglishWord = $state("");
@@ -109,10 +109,9 @@
   let savingDict = $state(false);
   let saveDictSuccess = $state(false);
   let filteredEnglishWords = $derived(
-    [
-      ...defaultEnglishWords.map((word) => ({ word, isDefault: true })),
-      ...customEnglishWords.map((word) => ({ word, isDefault: false }))
-    ].filter(({ word }) => word.includes(dictionarySearch.trim().toLowerCase()))
+    customEnglishWords
+      .filter((word) => word.includes(dictionarySearch.trim().toLowerCase()))
+      .map(word => ({ word }))
   );
   let newShortcut = $state("");
   let newContent = $state("");
@@ -182,6 +181,13 @@
   let gdriveAuthCode = $state("");
   let gdriveAuthUrl = $state("");
   let isPollingGdrive = $state(false);
+
+  // Sync Options
+  let syncSettings = $state(true);
+  let syncEnglishDict = $state(true);
+  let syncMacros = $state(true);
+  let syncClipboard = $state(true);
+  let syncAppConfigs = $state(true);
 
   const charToMacKeyCode: Record<string, number> = {
     "`": 50, "~": 50, "1": 18, "!": 18, "2": 19, "@": 19, "3": 20, "#": 20, "4": 21, "$": 21,
@@ -300,8 +306,7 @@
 
   async function loadCustomEnglishWords() {
     try {
-      const dictionary = await invoke<{ default_words: string[]; custom_words: string[] }>("get_english_dictionary");
-      defaultEnglishWords = dictionary.default_words;
+      const dictionary = await invoke<{ custom_words: string[] }>("get_english_dictionary");
       customEnglishWords = dictionary.custom_words;
     } catch (e) {
       console.error("Failed to load custom English words:", e);
@@ -331,7 +336,7 @@
       dictionaryError = "Chỉ nhập một từ gồm các chữ cái tiếng Anh a-z.";
       return;
     }
-    if (defaultEnglishWords.includes(word) || customEnglishWords.includes(word)) {
+    if (customEnglishWords.includes(word)) {
       dictionaryError = "Từ này đã có trong từ điển.";
       return;
     }
@@ -805,6 +810,11 @@
       syncMethod = await invoke<string>("get_kv", { key: "syncMethod" }) || "r2";
       let gToken = await invoke<string>("get_kv", { key: "gdriveAccessToken" }) || "";
       gdriveConnected = gToken !== "";
+      syncSettings = (await invoke<string>("get_kv", { key: "syncSettings" })) !== "0";
+      syncEnglishDict = (await invoke<string>("get_kv", { key: "syncEnglishDict" })) !== "0";
+      syncMacros = (await invoke<string>("get_kv", { key: "syncMacros" })) !== "0";
+      syncClipboard = (await invoke<string>("get_kv", { key: "syncClipboard" })) !== "0";
+      syncAppConfigs = (await invoke<string>("get_kv", { key: "syncAppConfigs" })) !== "0";
     } catch (e) {
       console.error(e);
     }
@@ -818,6 +828,11 @@
       await invoke("set_kv", { key: "cloudBucketName", value: cloudBucketName });
       await invoke("set_kv", { key: "cloudSyncPassword", value: cloudSyncPassword });
       await invoke("set_kv", { key: "syncMethod", value: syncMethod });
+      await invoke("set_kv", { key: "syncSettings", value: syncSettings ? "1" : "0" });
+      await invoke("set_kv", { key: "syncEnglishDict", value: syncEnglishDict ? "1" : "0" });
+      await invoke("set_kv", { key: "syncMacros", value: syncMacros ? "1" : "0" });
+      await invoke("set_kv", { key: "syncClipboard", value: syncClipboard ? "1" : "0" });
+      await invoke("set_kv", { key: "syncAppConfigs", value: syncAppConfigs ? "1" : "0" });
     } catch (e) {
       console.error(e);
     }
@@ -1008,7 +1023,7 @@
         </button>
         <button class="nav-item" class:active={activeTab === 5} onclick={() => activeTab = 5}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          Bảng nhớ
+          Bảng ghi nhớ
         </button>
         <button class="nav-item" class:active={activeTab === 6} onclick={() => activeTab = 6}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
@@ -1179,7 +1194,8 @@
               </div>
             </label>
 
-            <div class="sub-toggles-grid" class:disabled-zone={settings.check_spelling !== 1}>
+            {#if settings.check_spelling === 1}
+            <div class="sub-toggles-grid" transition:slide={{ duration: 250 }}>
               <label class="toggle-container">
                   <span class="toggle-text">Khôi phục từ khi gõ sai chính tả <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Trả lại chuỗi phím gốc nếu kết quả không tạo thành âm tiết tiếng Việt hợp lệ.">?</span></span>
                 <div class="switch">
@@ -1212,8 +1228,8 @@
                 </div>
               </label>
 
-              {#if settings.check_spelling === 1 && settings.use_english_dictionary === 1}
-                <div class="dict-editor-container">
+              {#if settings.use_english_dictionary === 1}
+                <div class="dict-editor-container" transition:slide={{ duration: 250 }}>
                   <div class="dict-editor-header">
                     <div>
                       <strong>Từ điển tiếng Anh</strong>
@@ -1242,23 +1258,28 @@
                     <p class="form-error">{dictionaryError}</p>
                   {/if}
                   <div class="dict-list" aria-label="Danh sách từ tiếng Anh">
-                    {#each filteredEnglishWords as entry (entry.word)}
-                      <div class="dict-word">
-                        <span>{entry.word}</span>
-                        {#if entry.isDefault}
-                          <span class="dict-badge">Mặc định</span>
-                        {:else}
-                          <button
-                            class="dict-delete"
-                            onclick={() => deleteEnglishWord(entry.word)}
-                            aria-label={`Xóa từ ${entry.word}`}
-                            data-tooltip="Xóa từ tùy chỉnh"
-                          >×</button>
-                        {/if}
-                      </div>
-                    {:else}
+                    {#if filteredEnglishWords.length === 0}
                       <div class="dict-empty">Không tìm thấy từ phù hợp.</div>
-                    {/each}
+                    {:else}
+                      <table class="macro-table" style="margin-top: 0;">
+                        <thead>
+                          <tr>
+                            <th>Từ vựng</th>
+                            <th style="width: 80px; text-align: center;">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {#each filteredEnglishWords as entry (entry.word)}
+                            <tr>
+                              <td class="font-mono">{entry.word}</td>
+                              <td style="text-align: center;">
+                                <button class="btn-delete" onclick={() => deleteEnglishWord(entry.word)}>Xóa</button>
+                              </td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                    {/if}
                   </div>
                   <div class="dict-editor-actions">
                     {#if saveDictSuccess}
@@ -1268,6 +1289,7 @@
                 </div>
               {/if}
             </div>
+            {/if}
           </div>
         </section>
 
@@ -1523,11 +1545,53 @@
       {:else if activeTab === 7}
         <section class="panel">
           <div class="panel-header">
-            <h2>Đồng bộ Dữ liệu</h2>
+            <h2>Đồng bộ dữ liệu</h2>
             <p class="panel-subtitle">Lưu trữ và khôi phục cài đặt, từ gõ tắt an toàn.</p>
           </div>
 
+          <div class="card mb-20">
+            <h3 style="margin-bottom: 15px;">Nội dung đồng bộ</h3>
+            <div class="toggles-grid-compact" style="grid-template-columns: 1fr;">
+              <label class="toggle-container">
+                <span class="toggle-text">Thiết lập chung</span>
+                <div class="switch">
+                  <input type="checkbox" bind:checked={syncSettings} onchange={saveCloudSettings} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+              <label class="toggle-container">
+                <span class="toggle-text">Từ điển kiểm tra Tiếng Anh</span>
+                <div class="switch">
+                  <input type="checkbox" bind:checked={syncEnglishDict} onchange={saveCloudSettings} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+              <label class="toggle-container">
+                <span class="toggle-text">Từ gõ tắt</span>
+                <div class="switch">
+                  <input type="checkbox" bind:checked={syncMacros} onchange={saveCloudSettings} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+              <label class="toggle-container">
+                <span class="toggle-text">Bảng ghi nhớ</span>
+                <div class="switch">
+                  <input type="checkbox" bind:checked={syncClipboard} onchange={saveCloudSettings} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+              <label class="toggle-container">
+                <span class="toggle-text">Thiết lập ứng dụng</span>
+                <div class="switch">
+                  <input type="checkbox" bind:checked={syncAppConfigs} onchange={saveCloudSettings} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div class="card">
+            <h3 style="margin-bottom: 15px;">Dịch vụ lưu trữ</h3>
             <div class="sub-tabs-container mb-15">
               <button class="sub-tab-item" class:active={syncMethod === 'gdrive'} onclick={() => {syncMethod = 'gdrive'; saveCloudSettings();}}>
                 Google Drive
@@ -1542,6 +1606,8 @@
               <input type="password" id="cloud-sync-password" bind:value={cloudSyncPassword} onchange={saveCloudSettings} placeholder="Bắt buộc để bảo vệ dữ liệu" class="form-input" />
               <p style="font-size: 12px; color: #666; margin-top: 4px;">Dữ liệu sẽ được mã hoá bằng mật khẩu này trước khi tải lên. Nếu quên, bạn sẽ mất dữ liệu đồng bộ.</p>
             </div>
+
+
 
             {#if syncMethod === 'gdrive'}
               <div class="gdrive-section" style="padding-top: 10px; border-top: 1px solid var(--border-color);">
@@ -1709,19 +1775,19 @@
           </div>
         </section>
 
-      <!-- Tab 5: Bảng nhớ -->
+      <!-- Tab 5: Bảng ghi nhớ -->
       {:else if activeTab === 5}
         <section class="panel">
           <div class="panel-header">
-            <h2>Bảng nhớ</h2>
+            <h2>Bảng ghi nhớ</h2>
             <p class="panel-subtitle">Quản lý sao chép bản văn, hình ảnh và tệp tin.</p>
           </div>
 
           <div class="card">
-            <h3>Cấu hình Bảng nhớ</h3>
+            <h3>Cấu hình Bảng ghi nhớ</h3>
             <div class="toggles-grid">
               <label class="toggle-container">
-                <span class="toggle-text">Kích hoạt Bảng nhớ <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Theo dõi nội dung sao chép để hiển thị lại nhanh. Dữ liệu nhạy cảm từ ứng dụng hỗ trợ cờ bảo mật sẽ bị bỏ qua.">?</span></span>
+                <span class="toggle-text">Kích hoạt Bảng ghi nhớ <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Theo dõi nội dung sao chép để hiển thị lại nhanh. Dữ liệu nhạy cảm từ ứng dụng hỗ trợ cờ bảo mật sẽ bị bỏ qua.">?</span></span>
                 <div class="switch">
                   <input type="checkbox" checked={settings.clipboard_enabled === 1} onchange={(e) => handleCheckboxChange('clipboard_enabled', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
@@ -1729,7 +1795,7 @@
               </label>
 
               <label class="toggle-container" class:disabled-zone={settings.clipboard_enabled !== 1}>
-                  <span class="toggle-text">Tự động ẩn cửa sổ sau khi chọn dán <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Đóng Bảng nhớ sau khi dán hoặc khi cửa sổ mất tiêu điểm.">?</span></span>
+                  <span class="toggle-text">Tự động ẩn cửa sổ sau khi chọn dán <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Đóng Bảng ghi nhớ sau khi dán hoặc khi cửa sổ mất tiêu điểm.">?</span></span>
                 <div class="switch">
                   <input type="checkbox" disabled={settings.clipboard_enabled !== 1} checked={settings.clipboard_auto_hide === 1} onchange={(e) => handleCheckboxChange('clipboard_auto_hide', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
@@ -1737,29 +1803,28 @@
               </label>
 
               <label class="toggle-container" class:disabled-zone={settings.clipboard_enabled !== 1}>
-                  <span class="toggle-text">Ghim cửa sổ Bảng nhớ luôn nổi lên trên <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Giữ Bảng nhớ phía trên các cửa sổ khác cho đến khi bạn bỏ ghim.">?</span></span>
+                  <span class="toggle-text">Ghim cửa sổ Bảng ghi nhớ luôn nổi lên trên <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Giữ Bảng ghi nhớ phía trên các cửa sổ khác cho đến khi bạn bỏ ghim.">?</span></span>
                 <div class="switch">
                   <input type="checkbox" disabled={settings.clipboard_enabled !== 1} checked={settings.clipboard_pin_on_top === 1} onchange={(e) => handleCheckboxChange('clipboard_pin_on_top', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
                 </div>
               </label>
-            </div>
-
-            <div class="form-row mt-20" class:disabled-zone={settings.clipboard_enabled !== 1}>
-              <div class="form-group flex-1">
-                <label for="max-items">Số lượng mục tối đa trong bảng nhớ</label>
+              <div class="toggle-container" class:disabled-zone={settings.clipboard_enabled !== 1}>
+                <span class="toggle-text">Số lượng mục tối đa trong Bảng ghi nhớ</span>
                 <input
-                  id="max-items"
                   type="number"
                   disabled={settings.clipboard_enabled !== 1}
-                  min="5"
-                  max="200"
+                  min="10"
+                  max="100"
                   value={settings.clipboard_max_items}
                   onchange={(e) => {
-                    settings.clipboard_max_items = parseInt((e.target as HTMLInputElement).value) || 30;
+                    let val = parseInt((e.target as HTMLInputElement).value) || 30;
+                    if (val < 10) val = 10;
+                    if (val > 100) val = 100;
+                    settings.clipboard_max_items = val;
                     saveSettings();
                   }}
-                  style="width: 100px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-primary);"
+                  style="width: 70px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-input, rgba(128,128,128,0.1)); color: var(--text-primary); text-align: center; font-size: 13px; outline: none;"
                 />
               </div>
             </div>
@@ -1792,24 +1857,24 @@
           </div>
 
           <div class="card mt-20">
-            <h3>Dọn dẹp Bảng nhớ</h3>
+            <h3>Dọn dẹp Bảng ghi nhớ</h3>
             <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span class="text-secondary" style="font-size: 13px;">Xóa sạch toàn bộ văn bản, hình ảnh và tệp đang được lưu trong bảng nhớ.</span>
+              <span class="text-secondary" style="font-size: 13px;">Xóa sạch toàn bộ nội dung đang lưu trong Bảng ghi nhớ.</span>
               <button
                 class="btn"
                 style="background: #ff453a; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;"
                 onclick={async () => {
-                  if (confirm("Bạn có chắc chắn muốn xóa toàn bộ bảng nhớ không?")) {
+                  if (confirm("Bạn có chắc chắn muốn xóa toàn bộ Bảng ghi nhớ không?")) {
                     try {
                       await invoke("clear_clipboard_history");
-                      alert("Đã xóa sạch bảng nhớ.");
+                      alert("Đã xóa sạch Bảng ghi nhớ.");
                     } catch (e) {
                       console.error(e);
                     }
                   }
                 }}
               >
-                Xóa bảng nhớ
+                Xóa Bảng ghi nhớ
               </button>
             </div>
           </div>
@@ -2316,6 +2381,7 @@
   }
 
   :root {
+    color-scheme: dark;
     --bg-app: #121216;
     --bg-sidebar: #191922;
     --bg-card: #1f1f2a;
@@ -2330,6 +2396,7 @@
   }
 
   :global(.light) {
+    color-scheme: light;
     --bg-app: #f4f4f6;
     --bg-sidebar: #ffffff;
     --bg-card: #f9f9fb;
@@ -2373,22 +2440,22 @@
   }
 
   .sidebar-header {
-    padding: 10px 24px 20px 24px;
+    padding: 14px 24px 20px 24px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
 
   .sidebar-header .logo {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     object-fit: contain;
   }
 
   .sidebar-header .title {
     font-weight: 700;
-    font-size: 16px;
+    font-size: 17px;
     letter-spacing: 0.3px;
   }
 
@@ -2599,9 +2666,12 @@
     display: grid;
     grid-template-columns: 1fr;
     column-gap: 30px;
-    row-gap: 12px;
-    padding-left: 10px;
-    border-left: 2px solid var(--border-color);
+    row-gap: 14px;
+    padding: 16px;
+    margin-top: 14px;
+    border: 1px solid var(--border-color);
+    background: rgba(128, 128, 128, 0.04);
+    border-radius: 10px;
   }
 
   .toggles-grid-compact {
@@ -3135,6 +3205,7 @@
   .mt-15 { margin-top: 15px; }
   .mt-20 { margin-top: 20px; }
   .mb-15 { margin-bottom: 15px; }
+  .mb-20 { margin-bottom: 20px; }
   .pt-5 { padding-top: 5px; }
   .pt-15 { padding-top: 15px; }
   .font-bold { font-weight: bold; }
@@ -3158,30 +3229,38 @@
   .dict-editor-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
-    padding: 12px;
-    background-color: rgba(255, 255, 255, 0.02);
-    border: 1px dashed var(--border-color);
-    border-radius: 8px;
+    gap: 12px;
+    margin-top: 15px;
+    margin-left: 12px;
+    padding: 16px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.02));
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.02);
   }
 
   @media (prefers-color-scheme: light) {
     .dict-editor-container {
-      background-color: rgba(0, 0, 0, 0.01);
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(240, 240, 245, 0.5));
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      border: 1px solid rgba(0,0,0,0.06);
     }
   }
 
   .dict-editor-header {
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 600;
   }
 
   .dict-editor-header p {
-    margin: 3px 0 0;
-    font-size: 11.5px;
-    font-weight: 400;
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--color-accent);
+    font-weight: 500;
   }
 
   .dict-toolbar,
@@ -3216,26 +3295,42 @@
   }
 
   .dict-list {
-    max-height: 220px;
+    max-height: 240px;
     overflow-y: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 6px;
-    padding: 8px;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: 7px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);
+  }
+
+  @media (prefers-color-scheme: light) {
+    .dict-list {
+      background: rgba(250, 250, 253, 0.8);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
+    }
   }
 
   .dict-word {
     min-width: 0;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 6px;
-    padding: 5px 7px;
-    border-radius: 5px;
-    background: rgba(128, 128, 128, 0.08);
-    font-size: 12.5px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid var(--border-color);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .dict-word:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
   }
 
   .dict-word > span:first-child {

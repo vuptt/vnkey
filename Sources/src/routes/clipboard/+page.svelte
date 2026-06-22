@@ -94,8 +94,8 @@
 
   async function clearAll() {
     isDialogOpen = true;
-    const yes = await ask("Bạn có chắc chắn muốn xóa toàn bộ bảng nhớ không?", {
-      title: "Xóa bảng nhớ",
+    const yes = await ask("Bạn có chắc chắn muốn xóa toàn bộ nội dung Bảng ghi nhớ không?", {
+      title: "Xóa Bảng ghi nhớ",
       kind: "warning",
     });
     
@@ -300,7 +300,7 @@
           <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
         </svg>
       </span>
-      <h2>Bảng nhớ</h2>
+      <h2>Bảng ghi nhớ</h2>
       {#if items.length > 0}
         <span class="items-count">{items.length} mục</span>
       {/if}
@@ -379,7 +379,7 @@
     <input
       id="search-input"
       type="text"
-      placeholder="Tìm kiếm bảng nhớ..."
+      placeholder="Tìm kiếm"
       bind:value={searchQuery}
       autocomplete="off"
     />
@@ -400,7 +400,7 @@
           <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
           <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
         </svg>
-        <p>Bảng nhớ trống</p>
+        <p>Chưa có nội dung trong Bảng ghi nhớ</p>
       </div>
     {:else}
       {#each filteredItems as item, index}
