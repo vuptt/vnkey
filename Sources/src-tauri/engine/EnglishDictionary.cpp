@@ -172,10 +172,6 @@ bool isProtectedEnglishWord(const std::string &word) {
   if (normalized.empty()) {
     return false;
   }
-  if (std::binary_search(std::begin(kProtectedEnglishWords),
-                         std::end(kProtectedEnglishWords), normalized)) {
-    return true;
-  }
   const auto customWords = std::atomic_load(&gCustomEnglishWords);
   return customWords->count(normalized) > 0;
 }

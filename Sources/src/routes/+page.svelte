@@ -128,6 +128,12 @@
   let isRecordingConvertHotkey = $state(false);
   let isRecordingClipboardHotkey = $state(false);
 
+  // App-specific settings state
+  let appConfigs = $state<Record<string, any>>({});
+  let selectedApp = $state<string | null>(null);
+  let newAppName = $state("");
+  let appConfigError = $state("");
+
   const charToMacKeyCode: Record<string, number> = {
     "`": 50, "~": 50, "1": 18, "!": 18, "2": 19, "@": 19, "3": 20, "#": 20, "4": 21, "$": 21,
     "5": 23, "%": 23, "6": 22, "^": 22, "7": 26, "&": 26, "8": 28, "*": 28, "9": 25, "(": 25,
@@ -288,6 +294,85 @@
   async function deleteEnglishWord(word: string) {
     customEnglishWords = customEnglishWords.filter((item) => item !== word);
     await saveCustomEnglishWords();
+  }
+
+  async function loadAppConfigs() {
+    try {
+      appConfigs = await invoke<Record<string, any>>("get_app_configs");
+      if (selectedApp && !appConfigs[selectedApp]) {
+        selectedApp = null;
+      }
+    } catch (e) {
+      console.error("Failed to load app configs:", e);
+    }
+  }
+
+  async function addAppConfig() {
+    appConfigError = "";
+    const name = newAppName.trim();
+    if (!name) {
+      appConfigError = "Tên ứng dụng không được để trống.";
+      return;
+    }
+    if (appConfigs[name]) {
+      appConfigError = "Ứng dụng này đã được cấu hình.";
+      return;
+    }
+
+    const defaultAppConfig = {
+      language: settings.language,
+      input_type: settings.input_type,
+      free_mark: settings.free_mark,
+      code_table: settings.code_table,
+      check_spelling: settings.check_spelling,
+      use_modern_orthography: settings.use_modern_orthography,
+      quick_telex: settings.quick_telex,
+      restore_if_wrong_spelling: settings.restore_if_wrong_spelling,
+      use_english_dictionary: settings.use_english_dictionary,
+      use_macro: settings.use_macro,
+      use_macro_in_english_mode: settings.use_macro_in_english_mode,
+      auto_caps_macro: settings.auto_caps_macro,
+      upper_case_first_char: settings.upper_case_first_char,
+      temp_off_spelling: settings.temp_off_spelling,
+      allow_consonant_zfwj: settings.allow_consonant_zfwj,
+      quick_start_consonant: settings.quick_start_consonant,
+      quick_end_consonant: settings.quick_end_consonant,
+    };
+
+    try {
+      await invoke("save_app_config", { appName: name, config: defaultAppConfig });
+      newAppName = "";
+      await loadAppConfigs();
+      selectedApp = name;
+    } catch (e: any) {
+      appConfigError = e.toString();
+    }
+  }
+
+  async function updateAppConfigField(field: string, value: any) {
+    if (!selectedApp || !appConfigs[selectedApp]) return;
+    const config = { ...appConfigs[selectedApp], [field]: value };
+    try {
+      await invoke("save_app_config", { appName: selectedApp, config });
+      appConfigs[selectedApp] = config;
+    } catch (e) {
+      console.error("Failed to update app config field:", e);
+    }
+  }
+
+  async function deleteAppConfig(name: string) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa cấu hình riêng cho ứng dụng "${name}"?`)) {
+      return;
+    }
+    try {
+      await invoke("remove_app_config", { appName: name });
+      if (selectedApp === name) {
+        selectedApp = null;
+      }
+      await loadAppConfigs();
+    } catch (e) {
+      console.error("Failed to remove app config:", e);
+    }
   }
 
   async function addMacro() {
@@ -555,6 +640,7 @@
         loadSettings();
         loadMacros();
         loadCustomEnglishWords();
+        loadAppConfigs();
       } else {
         pollingInterval = window.setInterval(async () => {
           const ok = await checkAccessibility();
@@ -562,6 +648,7 @@
             loadSettings();
             loadMacros();
             loadCustomEnglishWords();
+            loadAppConfigs();
             if (pollingInterval) {
               clearInterval(pollingInterval);
               pollingInterval = undefined;
@@ -595,6 +682,7 @@
       hasAccessibility = true;
       loadSettings();
       loadMacros();
+      loadAppConfigs();
       if (pollingInterval) {
         clearInterval(pollingInterval);
         pollingInterval = undefined;
@@ -638,6 +726,10 @@
         <button class="nav-item" class:active={activeTab === 5} onclick={() => activeTab = 5}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
           Bảng nhớ
+        </button>
+        <button class="nav-item" class:active={activeTab === 6} onclick={() => activeTab = 6}>
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          Ứng dụng
         </button>
         <button class="nav-item" class:active={activeTab === 3} onclick={() => activeTab = 3}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -834,7 +926,7 @@
                   <div class="dict-editor-header">
                     <div>
                       <strong>Từ điển tiếng Anh</strong>
-                      <p>{defaultEnglishWords.length} từ mặc định · {customEnglishWords.length} từ tùy chỉnh</p>
+                      <p>{customEnglishWords.length} từ</p>
                     </div>
                   </div>
                   <div class="dict-toolbar">
@@ -1338,6 +1430,246 @@
           </div>
         </section>
 
+      <!-- Tab 6: Ứng dụng -->
+      {:else if activeTab === 6}
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Thiết lập cho từng ứng dụng</h2>
+            <p class="panel-subtitle">Tùy chỉnh chế độ gõ và phím tắt riêng cho mỗi ứng dụng đang chạy.</p>
+          </div>
+
+          <div class="apps-layout">
+            <!-- Left Pane: List of Apps -->
+            <div class="apps-sidebar">
+              <div class="apps-sidebar-header">
+                <div class="apps-search-box">
+                  <input
+                    type="text"
+                    placeholder="Tên app (Ví dụ: Terminal)"
+                    bind:value={newAppName}
+                    onkeydown={(e) => e.key === 'Enter' && addAppConfig()}
+                  />
+                  <button class="btn btn-primary" onclick={addAppConfig} style="padding: 6px 12px; font-size: 13px;">+</button>
+                </div>
+                {#if appConfigError}
+                  <p class="form-error mt-5" style="font-size: 11px; margin: 4px 0 0 0;">{appConfigError}</p>
+                {/if}
+              </div>
+
+              <div class="apps-list">
+                {#each Object.keys(appConfigs) as appName}
+                  <div
+                    class="app-item"
+                    class:active={selectedApp === appName}
+                    onclick={() => selectedApp = appName}
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        selectedApp = appName;
+                      }
+                    }}
+                    role="button"
+                    tabindex="0"
+                  >
+                    <span>{appName}</span>
+                    <button
+                      class="app-item-delete"
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        deleteAppConfig(appName);
+                      }}
+                      aria-label="Xóa cấu hình"
+                    >×</button>
+                  </div>
+                {:else}
+                  <div class="apps-empty-state" style="padding: 20px 0; font-size: 12px;">
+                    Chưa có cấu hình riêng nào.
+                  </div>
+                {/each}
+              </div>
+            </div>
+
+            <!-- Right Pane: App Config Options -->
+            <div class="apps-content">
+              {#if selectedApp && appConfigs[selectedApp]}
+                <div class="apps-header">
+                  <h3>Cấu hình cho {selectedApp}</h3>
+                </div>
+
+                <div class="apps-sections-grid">
+                  <!-- Section 1: Cơ bản -->
+                  <div class="app-section">
+                    <h4>Cơ bản</h4>
+                    
+                    <div class="form-group-inline">
+                      <label for="app-lang">Ngôn ngữ mặc định</label>
+                      <select id="app-lang" value={appConfigs[selectedApp].language} onchange={(e) => updateAppConfigField('language', parseInt((e.target as HTMLSelectElement).value))}>
+                        <option value={1}>Tiếng Việt</option>
+                        <option value={0}>Tiếng Anh</option>
+                      </select>
+                    </div>
+
+                    <div class="form-group-inline mt-15">
+                      <label for="app-input-type">Kiểu gõ</label>
+                      <select id="app-input-type" value={appConfigs[selectedApp].input_type} onchange={(e) => updateAppConfigField('input_type', parseInt((e.target as HTMLSelectElement).value))}>
+                        <option value={0}>Telex</option>
+                        <option value={1}>VNI</option>
+                        <option value={2}>Simple Telex 1</option>
+                        <option value={3}>Simple Telex 2</option>
+                      </select>
+                    </div>
+
+                    <div class="form-group-inline mt-15">
+                      <label for="app-code-table">Bảng mã</label>
+                      <select id="app-code-table" value={appConfigs[selectedApp].code_table} onchange={(e) => updateAppConfigField('code_table', parseInt((e.target as HTMLSelectElement).value))}>
+                        <option value={0}>Unicode dựng sẵn</option>
+                        <option value={1}>TCVN3 (ABC)</option>
+                        <option value={2}>VNI Windows</option>
+                        <option value={3}>Unicode tổ hợp</option>
+                        <option value={4}>Vietnamese Locale CP1258</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Section 2: Gõ dấu -->
+                  <div class="app-section">
+                    <h4>Quy tắc gõ dấu</h4>
+                    <div class="toggles-grid-compact mt-10">
+                      <label class="toggle-container">
+                        <span class="toggle-text">Cho phép bỏ dấu tự do</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].free_mark === 1} onchange={(e) => updateAppConfigField('free_mark', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Đặt dấu oà, uý (thay vì òa, úy)</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].use_modern_orthography === 1} onchange={(e) => updateAppConfigField('use_modern_orthography', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Viết hoa chữ cái đầu tiên của câu</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].upper_case_first_char === 1} onchange={(e) => updateAppConfigField('upper_case_first_char', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Cho phép gõ tắt Telex nhanh</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].quick_telex === 1} onchange={(e) => updateAppConfigField('quick_telex', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Gõ nhanh phụ âm đầu</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].quick_start_consonant === 1} onchange={(e) => updateAppConfigField('quick_start_consonant', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Gõ nhanh phụ âm cuối</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].quick_end_consonant === 1} onchange={(e) => updateAppConfigField('quick_end_consonant', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Section 3: Chính tả -->
+                  <div class="app-section">
+                    <h4>Chính tả & Kiểm tra</h4>
+                    <div class="toggles-grid-compact mt-10">
+                      <label class="toggle-container">
+                        <span class="toggle-text">Bật kiểm tra chính tả</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].check_spelling === 1} onchange={(e) => updateAppConfigField('check_spelling', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Khôi phục từ khi gõ sai chính tả</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].restore_if_wrong_spelling === 1} onchange={(e) => updateAppConfigField('restore_if_wrong_spelling', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Tự động ngắt chính tả khi gõ chữ và số</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].temp_off_spelling === 1} onchange={(e) => updateAppConfigField('temp_off_spelling', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Cho phép gõ tự do phụ âm zfwj</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].allow_consonant_zfwj === 1} onchange={(e) => updateAppConfigField('allow_consonant_zfwj', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Sử dụng từ điển tiếng Anh</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].use_english_dictionary === 1} onchange={(e) => updateAppConfigField('use_english_dictionary', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Section 4: Gõ tắt -->
+                  <div class="app-section">
+                    <h4>Gõ tắt & Phím tắt</h4>
+                    <div class="toggles-grid-compact mt-10">
+                      <label class="toggle-container">
+                        <span class="toggle-text">Cho phép gõ tắt</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].use_macro === 1} onchange={(e) => updateAppConfigField('use_macro', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Cho phép gõ tắt ở chế độ tiếng Anh</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].use_macro_in_english_mode === 1} onchange={(e) => updateAppConfigField('use_macro_in_english_mode', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+
+                      <label class="toggle-container">
+                        <span class="toggle-text">Tự động viết hoa từ gõ tắt</span>
+                        <div class="switch">
+                          <input type="checkbox" checked={appConfigs[selectedApp].auto_caps_macro === 1} onchange={(e) => updateAppConfigField('auto_caps_macro', (e.target as HTMLInputElement).checked ? 1 : 0)} />
+                          <span class="slider"></span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              {:else}
+                <div class="apps-empty-state">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                  <p>Chọn một ứng dụng ở cột bên trái hoặc thêm mới để bắt đầu cấu hình riêng biệt.</p>
+                </div>
+              {/if}
+            </div>
+          </div>
+        </section>
+
       <!-- Tab 4: Thông tin -->
       {:else}
         <section class="panel">
@@ -1373,6 +1705,195 @@
   </div>
 
 <style>
+  /* Apps Tab Styles */
+  .apps-layout {
+    display: flex;
+    height: calc(100vh - 180px);
+    margin-top: 15px;
+    gap: 20px;
+  }
+  
+  .apps-sidebar {
+    width: 250px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    box-sizing: border-box;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  
+  .apps-sidebar-header {
+    margin-bottom: 12px;
+  }
+  
+  .apps-search-box {
+    display: flex;
+    gap: 6px;
+  }
+  
+  .apps-search-box input {
+    flex: 1;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  
+  .apps-search-box input:focus {
+    border-color: var(--color-accent);
+  }
+  
+  .apps-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .apps-list::-webkit-scrollbar {
+    width: 4px;
+  }
+  .apps-list::-webkit-scrollbar-thumb {
+    background: rgba(128,128,128,0.2);
+    border-radius: 4px;
+  }
+  
+  .app-item {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.12s ease;
+  }
+  
+  .app-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  :global(.light) .app-item:hover {
+    background: rgba(0, 0, 0, 0.02);
+  }
+  
+  .app-item.active {
+    background: rgba(0, 122, 255, 0.1);
+    color: var(--color-accent);
+    border-color: rgba(0, 122, 255, 0.15);
+  }
+  
+  .app-item-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.12s ease, color 0.12s ease;
+  }
+  
+  .app-item:hover .app-item-delete {
+    opacity: 0.6;
+  }
+  
+  .app-item-delete:hover {
+    color: #ff453a;
+    opacity: 1 !important;
+  }
+  
+  .apps-content {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  
+  .apps-content::-webkit-scrollbar {
+    width: 6px;
+  }
+  .apps-content::-webkit-scrollbar-thumb {
+    background: rgba(128,128,128,0.2);
+    border-radius: 4px;
+  }
+  
+  .apps-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    text-align: center;
+    opacity: 0.8;
+  }
+  
+  .apps-empty-state svg {
+    margin-bottom: 12px;
+    opacity: 0.4;
+    color: var(--text-secondary);
+  }
+  
+  .apps-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .apps-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  
+  .apps-sections-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .app-section {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
+  }
+  
+  .app-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  
+  .app-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.75px;
+  }
+
   :root {
     --bg-app: #121216;
     --bg-sidebar: #191922;

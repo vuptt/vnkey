@@ -559,14 +559,30 @@ fn get_english_dict_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
 
 fn load_english_dict_from_disk(handle: &tauri::AppHandle) {
     if let Some(path) = get_english_dict_path(handle) {
+        let migration_marker = "# Migration: Default words loaded";
         if path.exists() {
             if let Ok(content) = std::fs::read_to_string(&path) {
-                engine::set_custom_english_words(&content);
+                if !content.contains("Migration: Default words loaded") {
+                    // Perform migration: merge default words with existing custom words
+                    let default_content = engine::default_english_words();
+                    let mut merged_words = parse_english_words(&default_content);
+                    let existing_custom = parse_english_words(&content);
+                    merged_words.extend(existing_custom);
+                    merged_words.sort_unstable();
+                    merged_words.dedup();
+                    
+                    let new_content = format!("{}\n{}", migration_marker, merged_words.join("\n"));
+                    let _ = std::fs::write(&path, &new_content);
+                    engine::set_custom_english_words(&new_content);
+                } else {
+                    engine::set_custom_english_words(&content);
+                }
             }
         } else {
-            let default_content = "# Từ tùy chỉnh của bạn. Danh sách mặc định được tích hợp trong VNKey.\n";
-            let _ = std::fs::write(&path, default_content);
-            engine::set_custom_english_words(default_content);
+            let default_content = engine::default_english_words();
+            let new_content = format!("{}\n{}", migration_marker, default_content);
+            let _ = std::fs::write(&path, &new_content);
+            engine::set_custom_english_words(&new_content);
         }
     }
 }
@@ -577,7 +593,7 @@ fn get_english_dictionary(handle: tauri::AppHandle) -> Result<EnglishDictionary,
         .and_then(|path| std::fs::read_to_string(path).ok())
         .unwrap_or_default();
     Ok(EnglishDictionary {
-        default_words: parse_english_words(&engine::default_english_words()),
+        default_words: Vec::new(),
         custom_words: parse_english_words(&custom_content),
     })
 }
@@ -604,8 +620,9 @@ fn parse_english_words(content: &str) -> Vec<String> {
 fn save_custom_english_words(words: String, handle: tauri::AppHandle) -> Result<(), String> {
     if let Some(path) = get_english_dict_path(&handle) {
         let normalized = parse_english_words(&words).join("\n");
-        std::fs::write(&path, &normalized).map_err(|e| e.to_string())?;
-        engine::set_custom_english_words(&normalized);
+        let with_marker = format!("# Migration: Default words loaded\n{}", normalized);
+        std::fs::write(&path, &with_marker).map_err(|e| e.to_string())?;
+        engine::set_custom_english_words(&with_marker);
         Ok(())
     } else {
         Err("Không thể truy cập thư mục cấu hình.".into())
@@ -1152,6 +1169,142 @@ fn hide_clipboard_picker_window(handle: tauri::AppHandle) {
     }
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct AppConfig {
+    pub language: i32,
+    pub input_type: i32,
+    pub free_mark: i32,
+    pub code_table: i32,
+    pub check_spelling: i32,
+    pub use_modern_orthography: i32,
+    pub quick_telex: i32,
+    pub restore_if_wrong_spelling: i32,
+    pub use_english_dictionary: i32,
+    pub use_macro: i32,
+    pub use_macro_in_english_mode: i32,
+    pub auto_caps_macro: i32,
+    pub upper_case_first_char: i32,
+    pub temp_off_spelling: i32,
+    pub allow_consonant_zfwj: i32,
+    pub quick_start_consonant: i32,
+    pub quick_end_consonant: i32,
+}
+
+fn get_app_settings_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
+    if let Ok(mut path) = handle.path().app_config_dir() {
+        let _ = create_dir_all(&path);
+        path.push("app_settings.json");
+        Some(path)
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+fn get_app_configs(handle: tauri::AppHandle) -> Result<std::collections::HashMap<String, AppConfig>, String> {
+    if let Some(path) = get_app_settings_path(&handle) {
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(path) {
+                if let Ok(configs) = serde_json::from_str::<std::collections::HashMap<String, AppConfig>>(&content) {
+                    return Ok(configs);
+                }
+            }
+        }
+    }
+    Ok(std::collections::HashMap::new())
+}
+
+#[tauri::command]
+fn save_app_config(app_name: String, config: AppConfig, handle: tauri::AppHandle) -> Result<(), String> {
+    let mut configs = get_app_configs(handle.clone()).unwrap_or_default();
+    configs.insert(app_name.clone(), config);
+    if let Some(path) = get_app_settings_path(&handle) {
+        if let Ok(content) = serde_json::to_string_pretty(&configs) {
+            std::fs::write(path, content).map_err(|e| e.to_string())?;
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(current_app) = engine::get_frontmost_app_name() {
+            if current_app == app_name {
+                apply_app_config_by_name(&handle, &current_app);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn remove_app_config(app_name: String, handle: tauri::AppHandle) -> Result<(), String> {
+    let mut configs = get_app_configs(handle.clone()).unwrap_or_default();
+    configs.remove(&app_name);
+    if let Some(path) = get_app_settings_path(&handle) {
+        if let Ok(content) = serde_json::to_string_pretty(&configs) {
+            std::fs::write(path, content).map_err(|e| e.to_string())?;
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(current_app) = engine::get_frontmost_app_name() {
+            if current_app == app_name {
+                apply_app_config_by_name(&handle, &current_app);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn apply_app_config_by_name(handle: &tauri::AppHandle, app_name: &str) {
+    let mut applied_config: Option<AppConfig> = None;
+    if let Some(path) = get_app_settings_path(handle) {
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(path) {
+                if let Ok(configs) = serde_json::from_str::<std::collections::HashMap<String, AppConfig>>(&content) {
+                    if let Some(config) = configs.get(app_name) {
+                        applied_config = Some(config.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(config) = applied_config {
+        unsafe {
+            engine::vLanguage = config.language;
+            engine::vInputType = config.input_type;
+            engine::vFreeMark = config.free_mark;
+            engine::vCodeTable = config.code_table;
+            engine::vCheckSpelling = config.check_spelling;
+            engine::vUseModernOrthography = config.use_modern_orthography;
+            engine::vQuickTelex = config.quick_telex;
+            engine::vRestoreIfWrongSpelling = config.restore_if_wrong_spelling;
+            engine::vUseEnglishDictionary = config.use_english_dictionary;
+            engine::vUseMacro = config.use_macro;
+            engine::vUseMacroInEnglishMode = config.use_macro_in_english_mode;
+            engine::vAutoCapsMacro = config.auto_caps_macro;
+            engine::vUpperCaseFirstChar = config.upper_case_first_char;
+            engine::vTempOffSpelling = config.temp_off_spelling;
+            engine::vAllowConsonantZFWJ = config.allow_consonant_zfwj;
+            engine::vQuickStartConsonant = config.quick_start_consonant;
+            engine::vQuickEndConsonant = config.quick_end_consonant;
+            engine::startNewSession();
+            engine::code_table_changed();
+        }
+        update_tray_icon(handle);
+        let settings = get_settings();
+        let _ = handle.emit("settings-changed", settings);
+    } else {
+        load_settings_from_disk(handle);
+        unsafe {
+            engine::startNewSession();
+            engine::code_table_changed();
+        }
+        update_tray_icon(handle);
+        let settings = get_settings();
+        let _ = handle.emit("settings-changed", settings);
+    }
+}
+
 #[tauri::command]
 fn disable_hotkeys(disable: bool) {
     unsafe {
@@ -1171,6 +1324,27 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|window, event| {
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    let label = window.label();
+                    if label == "main" || label == "clipboard" {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                }
+                tauri::WindowEvent::Focused(true) => {
+                    let label = window.label();
+                    if label == "main" {
+                        let handle = window.app_handle();
+                        load_settings_from_disk(handle);
+                        let settings = get_settings();
+                        let _ = handle.emit("settings-changed", settings);
+                    }
+                }
+                _ => {}
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             get_settings,
             update_settings,
@@ -1191,7 +1365,10 @@ pub fn run() {
             strip_clipboard_formatting,
             paste_clipboard_item,
             toggle_clipboard_picker_window,
-            hide_clipboard_picker_window
+            hide_clipboard_picker_window,
+            get_app_configs,
+            save_app_config,
+            remove_app_config
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -1202,9 +1379,24 @@ pub fn run() {
 
             let handle_poll = handle.clone();
             std::thread::spawn(move || {
+                let mut last_app: Option<String> = None;
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(250));
                     
+                    #[cfg(target_os = "macos")]
+                    {
+                        if let Some(current_app) = engine::get_frontmost_app_name() {
+                            let should_update = match &last_app {
+                                Some(last) => last != &current_app,
+                                None => true,
+                            };
+                            if should_update {
+                                last_app = Some(current_app.clone());
+                                apply_app_config_by_name(&handle_poll, &current_app);
+                            }
+                        }
+                    }
+
                     if !CLIPBOARD_ENABLED.load(std::sync::atomic::Ordering::Relaxed) {
                         continue;
                     }
