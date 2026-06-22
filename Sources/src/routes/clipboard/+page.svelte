@@ -3,6 +3,7 @@
   import { invoke, convertFileSrc } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { ask } from "@tauri-apps/plugin-dialog";
   import { tooltip } from "$lib/tooltip";
 
   interface ClipboardItem {
@@ -24,10 +25,12 @@
   let settings = $state<any>(null);
   let isPin = $state(false);
   let autoHide = $state(false);
+  let isDialogOpen = $state(false);
 
   let unlistenChange: (() => void) | null = null;
   let unlistenPid: (() => void) | null = null;
   let unlistenBlur: (() => void) | null = null;
+  let unlistenSettings: (() => void) | null = null;
   let cleanupTheme: (() => void) | null = null;
 
   let filteredItems = $derived(
@@ -90,7 +93,17 @@
   }
 
   async function clearAll() {
-    if (confirm("Bạn có chắc chắn muốn xóa toàn bộ bảng nhớ không?")) {
+    isDialogOpen = true;
+    const yes = await ask("Bạn có chắc chắn muốn xóa toàn bộ bảng nhớ không?", {
+      title: "Xóa bảng nhớ",
+      kind: "warning",
+    });
+    
+    setTimeout(() => {
+      isDialogOpen = false;
+    }, 200);
+
+    if (yes) {
       try {
         await invoke("clear_clipboard_history");
         await loadItems();
@@ -252,8 +265,16 @@
 
     const appWindow = getCurrentWindow();
     unlistenBlur = await appWindow.listen("tauri://blur", () => {
-      if (autoHide) {
+      if (autoHide && !isDialogOpen) {
         invoke("hide_clipboard_picker_window");
+      }
+    });
+
+    unlistenSettings = await listen("settings-changed", (event: any) => {
+      settings = event.payload;
+      if (settings) {
+        isPin = settings.clipboard_pin_on_top === 1;
+        autoHide = settings.clipboard_auto_hide === 1;
       }
     });
   });
@@ -262,6 +283,7 @@
     if (unlistenChange) unlistenChange();
     if (unlistenPid) unlistenPid();
     if (unlistenBlur) unlistenBlur();
+    if (unlistenSettings) unlistenSettings();
     if (cleanupTheme) cleanupTheme();
   });
 </script>
@@ -666,9 +688,9 @@
     z-index: 9999;
     padding: 6px 8px;
     border-radius: 6px;
-    background: rgba(28, 28, 30, 0.96);
+    background: var(--color-accent);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     color: white;
     font-size: 11px;
     line-height: 1.3;
@@ -681,10 +703,10 @@
   }
 
   :global(.light .custom-floating-tooltip) {
-    background: rgba(255, 255, 255, 0.96);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    color: #1c1c1e;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    background: var(--color-accent);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
   :global(.custom-floating-tooltip.visible) {
@@ -725,7 +747,7 @@
     background: transparent;
     border: none;
     outline: none;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text-primary);
   }
 
@@ -812,9 +834,15 @@
     background: rgba(0, 0, 0, 0.01);
   }
 
-  .item-container:hover, .item-container.selected {
+  .item-container:hover {
     background: rgba(0, 122, 255, 0.1);
     border-color: rgba(0, 122, 255, 0.3);
+  }
+
+  .item-container.selected {
+    background: rgba(0, 122, 255, 0.15);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent) inset;
   }
 
   .shortcut-indicator {
@@ -974,7 +1002,7 @@
   }
 
   .item-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
@@ -991,8 +1019,8 @@
   .app-badge {
     background: rgba(255, 255, 255, 0.07);
     color: var(--text-secondary);
-    font-size: 9.5px;
-    padding: 1px 5px;
+    font-size: 10px;
+    padding: 2px 6px;
     border-radius: 4px;
     font-weight: 500;
   }
@@ -1002,9 +1030,9 @@
   }
 
   .time-badge {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-secondary);
-    opacity: 0.7;
+    opacity: 0.85;
   }
 
   /* Row Actions */

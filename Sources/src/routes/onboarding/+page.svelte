@@ -36,7 +36,7 @@
 
 <div class="onboarding-container" data-tauri-drag-region>
   <header class="header" data-tauri-drag-region>
-    <div class="logo" data-tauri-drag-region>V</div>
+    <img src="/logo.png" alt="VNKey Logo" class="logo" data-tauri-drag-region />
     <h1>Kích hoạt VNKey</h1>
     <p class="subtitle">Bộ gõ tiếng Việt mã nguồn mở thế hệ mới</p>
   </header>
@@ -47,20 +47,21 @@
         <div class="timeline-badge">1</div>
         <div class="timeline-content">
           <span class="timeline-title">Cấp quyền Trợ năng</span>
-          <span class="timeline-desc">Nhấp nút <strong>Cấp quyền trợ năng</strong> để mở Cài đặt Hệ thống.</span>
+          <span class="timeline-desc">Nhấp nút <strong>Cấp quyền trợ năng</strong> để mở Cài đặt Hệ thống. Tìm <strong>VNKey</strong> và bật công tắc.</span>
         </div>
       </div>
       <div class="timeline-item">
         <div class="timeline-badge">2</div>
         <div class="timeline-content">
-          <span class="timeline-title">Cho phép VNKey</span>
-          <span class="timeline-desc">Tìm <strong>VNKey</strong> trong danh sách và bật công tắc cho phép.</span>
+          <span class="timeline-title">Cấp quyền Đĩa cứng (Tùy chọn)</span>
+          <span class="timeline-desc">Mở Cài đặt > Quyền riêng tư > <strong>Toàn quyền truy cập Đĩa</strong> và thêm VNKey nếu bạn muốn dùng tính năng Bảng nhớ (Clipboard).</span>
         </div>
       </div>
     </div>
     
     <p class="note">
-      💡 VNKey cần quyền này để nhận diện và gõ tiếng Việt trên các ứng dụng.
+      💡 VNKey cần quyền Trợ năng để nhận diện và gõ tiếng Việt. 
+      <br/><span style="color: var(--color-accent); font-weight: 500;">VNKey tuyệt đối không thu thập bất kỳ thông tin nào, mọi thứ hoạt động hoàn toàn Offline trên máy của bạn.</span>
     </p>
   </main>
 
@@ -125,17 +126,11 @@
   }
 
   .logo {
-    width: 48px;
-    height: 48px;
-    font-size: 24px;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--color-accent), #0056b3);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.25);
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    object-fit: contain;
   }
 
   h1 {

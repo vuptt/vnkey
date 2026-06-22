@@ -96,14 +96,25 @@ fi
 if [ "$ACTION" = "install" ]; then
     echo "=== Installing VNKey.app to /Applications ==="
     echo "Closing currently running VNKey app..."
+    osascript -e 'quit app "VNKey"' 2>/dev/null || true
+    sleep 1
     killall VNKey 2>/dev/null || true
     sleep 1
     
     echo "Replacing /Applications/VNKey.app..."
     if [ -e /Applications/VNKey.app ]; then
-        run_privileged rm -rf /Applications/VNKey.app
+        if [ -w /Applications/VNKey.app ]; then
+            rm -rf /Applications/VNKey.app || sudo rm -rf /Applications/VNKey.app
+        else
+            sudo rm -rf /Applications/VNKey.app
+        fi
     fi
-    run_privileged ditto "$APP_PATH" /Applications/VNKey.app
+    
+    if [ -w /Applications ]; then
+        ditto "$APP_PATH" /Applications/VNKey.app || sudo ditto "$APP_PATH" /Applications/VNKey.app
+    else
+        sudo ditto "$APP_PATH" /Applications/VNKey.app
+    fi
     
     echo "Opening new VNKey app..."
     open /Applications/VNKey.app

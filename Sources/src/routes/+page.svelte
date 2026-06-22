@@ -134,6 +134,21 @@
   let newAppName = $state("");
   let appConfigError = $state("");
 
+  // Cloud Sync state
+  let cloudAccountId = $state("");
+  let cloudAccessKey = $state("");
+  let cloudSecretKey = $state("");
+  let cloudBucketName = $state("");
+  let cloudSyncPassword = $state("");
+  let isCloudSyncing = $state(false);
+  let cloudSyncMessage = $state("");
+  let cloudSyncError = $state(false);
+  let syncMethod = $state("r2");
+  let gdriveConnected = $state(false);
+  let gdriveAuthCode = $state("");
+  let gdriveAuthUrl = $state("");
+  let isPollingGdrive = $state(false);
+
   const charToMacKeyCode: Record<string, number> = {
     "`": 50, "~": 50, "1": 18, "!": 18, "2": 19, "@": 19, "3": 20, "#": 20, "4": 21, "$": 21,
     "5": 23, "%": 23, "6": 22, "^": 22, "7": 26, "&": 26, "8": 28, "*": 28, "9": 25, "(": 25,
@@ -681,6 +696,7 @@
     listen<void>("accessibility-granted", () => {
       hasAccessibility = true;
       loadSettings();
+      loadCloudSettings();
       loadMacros();
       loadAppConfigs();
       if (pollingInterval) {
@@ -699,6 +715,194 @@
       mediaQuery.removeEventListener('change', updateTheme);
     };
   });
+
+  async function loadCloudSettings() {
+    try {
+      cloudAccountId = await invoke<string>("get_kv", { key: "cloudAccountId" }) || "";
+      cloudAccessKey = await invoke<string>("get_kv", { key: "cloudAccessKey" }) || "";
+      cloudSecretKey = await invoke<string>("get_kv", { key: "cloudSecretKey" }) || "";
+      cloudBucketName = await invoke<string>("get_kv", { key: "cloudBucketName" }) || "";
+      cloudSyncPassword = await invoke<string>("get_kv", { key: "cloudSyncPassword" }) || "";
+      syncMethod = await invoke<string>("get_kv", { key: "syncMethod" }) || "r2";
+      let gToken = await invoke<string>("get_kv", { key: "gdriveAccessToken" }) || "";
+      gdriveConnected = gToken !== "";
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function saveCloudSettings() {
+    try {
+      await invoke("set_kv", { key: "cloudAccountId", value: cloudAccountId });
+      await invoke("set_kv", { key: "cloudAccessKey", value: cloudAccessKey });
+      await invoke("set_kv", { key: "cloudSecretKey", value: cloudSecretKey });
+      await invoke("set_kv", { key: "cloudBucketName", value: cloudBucketName });
+      await invoke("set_kv", { key: "cloudSyncPassword", value: cloudSyncPassword });
+      await invoke("set_kv", { key: "syncMethod", value: syncMethod });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function syncToCloud() {
+    if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName || !cloudSyncPassword) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Vui lòng nhập đầy đủ thông tin R2 và mật khẩu đồng bộ.";
+      return;
+    }
+    isCloudSyncing = true;
+    cloudSyncMessage = "Đang tải dữ liệu lên đám mây...";
+    cloudSyncError = false;
+    try {
+      await saveCloudSettings();
+      await invoke("sync_to_cloud", {
+        accountId: cloudAccountId,
+        accessKey: cloudAccessKey,
+        secretKey: cloudSecretKey,
+        bucketName: cloudBucketName,
+        syncPassword: cloudSyncPassword
+      });
+      cloudSyncMessage = "Đồng bộ lên đám mây thành công!";
+    } catch (e: any) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Lỗi: " + e;
+    } finally {
+      isCloudSyncing = false;
+    }
+  }
+
+  async function syncFromCloud() {
+    if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName || !cloudSyncPassword) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Vui lòng nhập đầy đủ thông tin R2 và mật khẩu đồng bộ.";
+      return;
+    }
+    isCloudSyncing = true;
+    cloudSyncMessage = "Đang tải dữ liệu từ đám mây...";
+    cloudSyncError = false;
+    try {
+      await saveCloudSettings();
+      await invoke("sync_from_cloud", {
+        accountId: cloudAccountId,
+        accessKey: cloudAccessKey,
+        secretKey: cloudSecretKey,
+        bucketName: cloudBucketName,
+        syncPassword: cloudSyncPassword
+      });
+      cloudSyncMessage = "Tải dữ liệu từ đám mây thành công!";
+      loadMacros();
+    } catch (e: any) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Lỗi: " + e;
+    } finally {
+      isCloudSyncing = false;
+    }
+  }
+
+  async function startGdriveAuth() {
+    isCloudSyncing = true;
+    cloudSyncError = false;
+    cloudSyncMessage = "Đang khởi tạo kết nối Google Drive...";
+    try {
+      let res: any = await invoke("start_google_auth");
+      gdriveAuthCode = res.user_code;
+      gdriveAuthUrl = res.verification_url;
+      isPollingGdrive = true;
+      cloudSyncMessage = "";
+      pollGdriveAuth(res.device_code, res.interval);
+    } catch (e: any) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Lỗi khởi tạo: " + e;
+    } finally {
+      isCloudSyncing = false;
+    }
+  }
+
+  async function pollGdriveAuth(deviceCode: string, intervalSecs: number) {
+    if (!isPollingGdrive) return;
+    try {
+      let res: any = await invoke("poll_google_auth", { deviceCode });
+      await invoke("set_kv", { key: "gdriveAccessToken", value: res.access_token });
+      if (res.refresh_token) {
+        await invoke("set_kv", { key: "gdriveRefreshToken", value: res.refresh_token });
+      }
+      gdriveConnected = true;
+      isPollingGdrive = false;
+      cloudSyncMessage = "Kết nối Google Drive thành công!";
+      cloudSyncError = false;
+    } catch (e: any) {
+      if (e.includes("authorization_pending")) {
+        setTimeout(() => pollGdriveAuth(deviceCode, intervalSecs), intervalSecs * 1000);
+      } else {
+        isPollingGdrive = false;
+        cloudSyncError = true;
+        cloudSyncMessage = "Lỗi xác thực: " + e;
+      }
+    }
+  }
+
+  function openGdriveAuthUrl() {
+    invoke("plugin:opener|open_url", { url: gdriveAuthUrl });
+  }
+
+  function cancelGdriveAuth() {
+    isPollingGdrive = false;
+    gdriveAuthCode = "";
+    gdriveAuthUrl = "";
+    cloudSyncMessage = "";
+  }
+
+  async function disconnectGdrive() {
+    await invoke("set_kv", { key: "gdriveAccessToken", value: "" });
+    await invoke("set_kv", { key: "gdriveRefreshToken", value: "" });
+    gdriveConnected = false;
+    cloudSyncMessage = "Đã ngắt kết nối Google Drive.";
+    cloudSyncError = false;
+  }
+
+  async function syncToGdrive() {
+    if (!cloudSyncPassword) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Vui lòng nhập mật khẩu đồng bộ.";
+      return;
+    }
+    isCloudSyncing = true;
+    cloudSyncMessage = "Đang tải dữ liệu lên Google Drive...";
+    cloudSyncError = false;
+    try {
+      await saveCloudSettings();
+      await invoke("sync_to_gdrive", { syncPassword: cloudSyncPassword });
+      cloudSyncMessage = "Đồng bộ lên Google Drive thành công!";
+    } catch (e: any) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Lỗi: " + e;
+    } finally {
+      isCloudSyncing = false;
+    }
+  }
+
+  async function syncFromGdrive() {
+    if (!cloudSyncPassword) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Vui lòng nhập mật khẩu đồng bộ.";
+      return;
+    }
+    isCloudSyncing = true;
+    cloudSyncMessage = "Đang tải dữ liệu từ Google Drive...";
+    cloudSyncError = false;
+    try {
+      await saveCloudSettings();
+      await invoke("sync_from_gdrive", { syncPassword: cloudSyncPassword });
+      cloudSyncMessage = "Tải dữ liệu từ Google Drive thành công!";
+      loadMacros();
+    } catch (e: any) {
+      cloudSyncError = true;
+      cloudSyncMessage = "Lỗi: " + e;
+    } finally {
+      isCloudSyncing = false;
+    }
+  }
+
 </script>
 
 
@@ -730,6 +934,14 @@
         <button class="nav-item" class:active={activeTab === 6} onclick={() => activeTab = 6}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
           Ứng dụng
+        </button>
+        <button class="nav-item" class:active={activeTab === 7} onclick={() => activeTab = 7}>
+          <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          Đồng bộ
         </button>
         <button class="nav-item" class:active={activeTab === 3} onclick={() => activeTab = 3}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -1225,6 +1437,96 @@
                 Xóa tất cả
               </button>
             </div>
+          </div>
+        </section>
+
+      <!-- Tab 7: Cloud Sync -->
+      {:else if activeTab === 7}
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Đồng bộ Dữ liệu</h2>
+            <p class="panel-subtitle">Lưu trữ và khôi phục cài đặt, từ gõ tắt an toàn.</p>
+          </div>
+
+          <div class="card">
+            <div class="sub-tabs-container mb-15">
+              <button class="sub-tab-item" class:active={syncMethod === 'gdrive'} onclick={() => {syncMethod = 'gdrive'; saveCloudSettings();}}>
+                <span style="margin-right: 6px;">☁️</span> Google Drive
+              </button>
+              <button class="sub-tab-item" class:active={syncMethod === 'r2'} onclick={() => {syncMethod = 'r2'; saveCloudSettings();}}>
+                <span style="margin-right: 6px;">🌩️</span> Cloudflare R2
+              </button>
+            </div>
+            
+            <div class="form-group mb-15">
+              <label for="cloud-sync-password">Mật khẩu mã hoá (E2EE)</label>
+              <input type="password" id="cloud-sync-password" bind:value={cloudSyncPassword} onchange={saveCloudSettings} placeholder="Bắt buộc để bảo vệ dữ liệu" class="app-search-input" />
+              <p style="font-size: 12px; color: #666; margin-top: 4px;">Dữ liệu sẽ được mã hoá bằng mật khẩu này trước khi tải lên. Nếu quên, bạn sẽ mất dữ liệu đồng bộ.</p>
+            </div>
+
+            {#if syncMethod === 'gdrive'}
+              <div class="gdrive-section" style="padding-top: 10px; border-top: 1px solid var(--border-color);">
+                {#if gdriveConnected}
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="color: var(--accent-color); font-weight: 500;">✓ Đã kết nối Google Drive</div>
+                    <button class="btn btn-secondary" onclick={disconnectGdrive}>Đăng xuất</button>
+                  </div>
+                  <div class="flex-actions mt-15" style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" onclick={syncToGdrive} disabled={isCloudSyncing}>
+                      {isCloudSyncing ? "Đang xử lý..." : "Tải lên Drive"}
+                    </button>
+                    <button class="btn btn-secondary" onclick={syncFromGdrive} disabled={isCloudSyncing}>
+                      {isCloudSyncing ? "Đang xử lý..." : "Tải về Máy"}
+                    </button>
+                  </div>
+                {:else if isPollingGdrive}
+                  <div style="background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; text-align: center;">
+                    <h3 style="margin-top:0">Xác thực Google Drive</h3>
+                    <p>Mã xác nhận: <strong style="font-size: 24px; letter-spacing: 2px; color: var(--accent-color);">{gdriveAuthCode}</strong></p>
+                    <button class="btn btn-primary" onclick={openGdriveAuthUrl}>Mở Trình duyệt để Nhập Mã</button>
+                    <p style="font-size: 13px; color: #666; margin-top: 10px;">Đang đợi bạn xác nhận trên trình duyệt...</p>
+                    <button class="btn btn-secondary" onclick={cancelGdriveAuth} style="margin-top: 10px;">Huỷ</button>
+                  </div>
+                {:else}
+                  <button class="btn btn-primary" onclick={startGdriveAuth} disabled={isCloudSyncing}>
+                    Kết nối Google Drive
+                  </button>
+                {/if}
+              </div>
+            {:else}
+              <div class="r2-section" style="padding-top: 10px; border-top: 1px solid var(--border-color);">
+                <div class="form-group mb-15">
+                  <label for="cloud-account-id">Account ID</label>
+                  <input type="text" id="cloud-account-id" bind:value={cloudAccountId} onchange={saveCloudSettings} placeholder="Cloudflare Account ID" class="app-search-input" />
+                </div>
+                <div class="form-group mb-15">
+                  <label for="cloud-access-key">Access Key ID</label>
+                  <input type="text" id="cloud-access-key" bind:value={cloudAccessKey} onchange={saveCloudSettings} placeholder="R2 Access Key" class="app-search-input" />
+                </div>
+                <div class="form-group mb-15">
+                  <label for="cloud-secret-key">Secret Access Key</label>
+                  <input type="password" id="cloud-secret-key" bind:value={cloudSecretKey} onchange={saveCloudSettings} placeholder="R2 Secret Key" class="app-search-input" />
+                </div>
+                <div class="form-group mb-15">
+                  <label for="cloud-bucket-name">Bucket Name</label>
+                  <input type="text" id="cloud-bucket-name" bind:value={cloudBucketName} onchange={saveCloudSettings} placeholder="vnkey-sync" class="app-search-input" />
+                </div>
+                <div class="flex-actions mt-15" style="display: flex; gap: 10px;">
+                  <button class="btn btn-primary" onclick={syncToCloud} disabled={isCloudSyncing}>
+                    {isCloudSyncing ? "Đang xử lý..." : "Tải lên R2"}
+                  </button>
+                  <button class="btn btn-secondary" onclick={syncFromCloud} disabled={isCloudSyncing}>
+                    {isCloudSyncing ? "Đang xử lý..." : "Tải về Máy"}
+                  </button>
+                </div>
+              </div>
+            {/if}
+
+            {#if cloudSyncMessage}
+              <div class="mt-15" style="padding: 12px; border-radius: 6px; background-color: {cloudSyncError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)'}; color: {cloudSyncError ? '#ef4444' : '#22c55e'}; border: 1px solid {cloudSyncError ? '#ef4444' : '#22c55e'};">
+                {cloudSyncMessage}
+              </div>
+            {/if}
           </div>
         </section>
 
@@ -2786,5 +3088,53 @@
     font-weight: 700;
     cursor: help;
     vertical-align: 1px;
+  }
+
+  .sub-tabs-container {
+    display: flex;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.04);
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  :global(body.dark-mode) .sub-tabs-container {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .sub-tab-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .sub-tab-item:hover {
+    color: var(--text-color);
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  :global(body.dark-mode) .sub-tab-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .sub-tab-item.active {
+    background: var(--bg-color);
+    color: var(--text-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  :global(body.dark-mode) .sub-tab-item.active {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 </style>

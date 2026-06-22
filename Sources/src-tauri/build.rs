@@ -1,4 +1,21 @@
 fn main() {
+    // Read .env file if it exists and pass to rustc
+    let env_path = std::path::Path::new("../.env");
+    if env_path.exists() {
+        println!("cargo:rerun-if-changed=../.env");
+        if let Ok(content) = std::fs::read_to_string(env_path) {
+            for line in content.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                if let Some((key, value)) = line.split_once('=') {
+                    println!("cargo:rustc-env={}={}", key.trim(), value.trim());
+                }
+            }
+        }
+    }
+
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let mut builder = cc::Build::new();
     builder
@@ -41,9 +58,11 @@ fn main() {
             .flag("-mmacosx-version-min=11.0")
             .flag("-fobjc-arc")
             .file("src/tauri_event_tap.mm")
+            .file("src/macos_apps.mm")
             .include("engine")
             .compile("vnkey_macos_adapter");
         println!("cargo:rerun-if-changed=src/tauri_event_tap.mm");
+        println!("cargo:rerun-if-changed=src/macos_apps.mm");
         println!("cargo:rustc-link-lib=framework=Carbon");
         println!("cargo:rustc-link-lib=framework=Cocoa");
         println!("cargo:rustc-link-lib=framework=AppKit");

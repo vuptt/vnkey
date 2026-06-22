@@ -224,22 +224,31 @@ extern "C" {
         return [topApp isEqualToString:@"com.apple.Spotlight"];
     }
 
+    #include <atomic>
+    
+    std::atomic<bool> g_spotlightVisible{false};
+
     BOOL isSpotlightVisible() {
         const CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
         if (now - _spotlightCheckedAt < 0.2) {
-            return _spotlightVisible;
+            return g_spotlightVisible.load();
         }
         _spotlightCheckedAt = now;
-        _spotlightVisible = NO;
-        NSArray *windows = CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
-                                                                        kCGNullWindowID));
-        for (NSDictionary *window in windows) {
-            if ([[window objectForKey:(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Spotlight"]) {
-                _spotlightVisible = YES;
-                break;
+        
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+            BOOL visible = NO;
+            NSArray *windows = CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+                                                                            kCGNullWindowID));
+            for (NSDictionary *window in windows) {
+                if ([[window objectForKey:(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Spotlight"]) {
+                    visible = YES;
+                    break;
+                }
             }
-        }
-        return _spotlightVisible;
+            g_spotlightVisible.store(visible);
+        });
+        
+        return g_spotlightVisible.load();
     }
 
     BOOL shouldUseRecommendWorkaround(NSString* topApp) {

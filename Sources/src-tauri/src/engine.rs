@@ -113,13 +113,20 @@ extern "C" {
     #[allow(dead_code)]
     pub fn macos_configure_clipboard_window(ns_window_ptr: *mut c_void, pin_on_top: bool);
     #[cfg(target_os = "macos")]
-    pub fn macos_get_frontmost_app_name() -> *mut c_char;
-    #[cfg(target_os = "macos")]
     pub fn macos_get_frontmost_app_pid() -> c_int;
     #[cfg(target_os = "macos")]
     pub fn macos_set_clipboard_hotkey(val: c_int);
     #[cfg(target_os = "macos")]
     pub fn macos_set_clipboard_enabled(enabled: bool);
+
+    #[cfg(target_os = "macos")]
+    pub fn macos_get_frontmost_app_bundle_id() -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_get_running_applications_json() -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_get_application_info_by_path_json(path_cstr: *const c_char) -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_get_application_info_by_bundle_id_json(bundle_id_cstr: *const c_char) -> *mut c_char;
 }
 
 pub fn init() {
@@ -286,7 +293,7 @@ pub fn clipboard_paste_item(
     let html_c = html.and_then(|s| CString::new(s).ok());
     let img_c = image_file_path.and_then(|s| CString::new(s).ok());
     let files_c = file_paths_joined.and_then(|s| CString::new(s).ok());
-    
+
     unsafe {
         macos_clipboard_paste(
             prev_pid,
@@ -307,11 +314,6 @@ pub fn configure_clipboard_window(ns_window_ptr: *mut std::ffi::c_void, pin_on_t
 }
 
 #[cfg(target_os = "macos")]
-pub fn get_frontmost_app_name() -> Option<String> {
-    unsafe { take_string(macos_get_frontmost_app_name()) }
-}
-
-#[cfg(target_os = "macos")]
 pub fn get_frontmost_app_pid() -> i32 {
     unsafe { macos_get_frontmost_app_pid() }
 }
@@ -326,6 +328,27 @@ pub fn macos_set_clipboard_enabled_val(enabled: bool) {
     unsafe { macos_set_clipboard_enabled(enabled) }
 }
 
+#[cfg(target_os = "macos")]
+pub fn get_frontmost_app_bundle_id() -> Option<String> {
+    unsafe { take_string(macos_get_frontmost_app_bundle_id()) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_running_applications_json() -> Option<String> {
+    unsafe { take_string(macos_get_running_applications_json()) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_application_info_by_path_json(path: &str) -> Option<String> {
+    let path_c = CString::new(path).ok()?;
+    unsafe { take_string(macos_get_application_info_by_path_json(path_c.as_ptr())) }
+}
+
+#[cfg(target_os = "macos")]
+pub fn get_application_info_by_bundle_id_json(bundle_id: &str) -> Option<String> {
+    let id_c = CString::new(bundle_id).ok()?;
+    unsafe { take_string(macos_get_application_info_by_bundle_id_json(id_c.as_ptr())) }
+}
 
 #[cfg(test)]
 mod tests {
