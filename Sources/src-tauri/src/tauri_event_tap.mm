@@ -178,10 +178,7 @@ extern "C" {
     }
 
     void refreshFrontMostAppIfNeeded() {
-        const CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-        if (now - _frontMostAppCheckedAt >= 0.1) {
-            queryFrontMostApp();
-        }
+        queryFrontMostApp();
     }
 
     void refreshCurrentInputSource() {
@@ -206,11 +203,16 @@ extern "C" {
         return topApp != nil &&
             ([topApp hasPrefix:@"com.apple."] ||
              [topApp isEqualToString:@"com.google.Chrome"] ||
+             [topApp isEqualToString:@"com.google.Chrome.canary"] ||
              [topApp isEqualToString:@"com.brave.Browser"] ||
              [topApp isEqualToString:@"com.microsoft.edgemac.Dev"] ||
              [topApp isEqualToString:@"com.microsoft.edgemac.Beta"] ||
              [topApp isEqualToString:@"com.microsoft.Edge.Dev"] ||
-             [topApp isEqualToString:@"com.microsoft.Edge"]);
+             [topApp isEqualToString:@"com.microsoft.Edge"] ||
+             [topApp isEqualToString:@"company.thebrowser.Browser"] ||
+             [topApp isEqualToString:@"com.vivaldi.Vivaldi"] ||
+             [topApp isEqualToString:@"com.operasoftware.Opera"] ||
+             [topApp isEqualToString:@"org.chromium.Chromium"]);
     }
 
     BOOL isNiceSpaceApp(NSString* topApp) {
@@ -225,26 +227,35 @@ extern "C" {
     #include <atomic>
     
     std::atomic<bool> g_spotlightVisible{false};
+    std::atomic<bool> g_spotlightIsChecking{false};
+
+    void forceCheckSpotlightVisible() {
+        bool expected = false;
+        if (g_spotlightIsChecking.compare_exchange_strong(expected, true)) {
+            _spotlightCheckedAt = CFAbsoluteTimeGetCurrent();
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+                BOOL visible = NO;
+                NSArray *windows = CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+                                                                                kCGNullWindowID));
+                for (NSDictionary *window in windows) {
+                    if ([[window objectForKey:(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Spotlight"]) {
+                        visible = YES;
+                        break;
+                    }
+                }
+                g_spotlightVisible.store(visible);
+                g_spotlightIsChecking.store(false);
+            });
+        }
+    }
 
     BOOL isSpotlightVisible() {
         const CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
         if (now - _spotlightCheckedAt < 0.2) {
             return g_spotlightVisible.load();
         }
-        _spotlightCheckedAt = now;
         
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
-            BOOL visible = NO;
-            NSArray *windows = CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
-                                                                            kCGNullWindowID));
-            for (NSDictionary *window in windows) {
-                if ([[window objectForKey:(__bridge NSString *)kCGWindowOwnerName] isEqualToString:@"Spotlight"]) {
-                    visible = YES;
-                    break;
-                }
-            }
-            g_spotlightVisible.store(visible);
-        });
+        forceCheckSpotlightVisible();
         
         return g_spotlightVisible.load();
     }
@@ -655,6 +666,12 @@ extern "C" {
         
         _flag = CGEventGetFlags(event);
         _keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+        
+        if (type == kCGEventKeyDown) {
+            if ((_keycode == 49 && (_flag & kCGEventFlagMaskCommand)) || _keycode == 160 || _keycode == 131) {
+                forceCheckSpotlightVisible();
+            }
+        }
         
         if (type == kCGEventKeyDown && vPerformLayoutCompat) {
             // If conversion fail, use current keycode
