@@ -3133,17 +3133,12 @@
   }
 
   .macro-table th {
-    background-color: rgba(0, 0, 0, 0.15);
+    background-color: var(--bg-card);
     color: var(--text-secondary);
     font-weight: 600;
     position: sticky;
     top: 0;
-  }
-
-  @media (prefers-color-scheme: light) {
-    .macro-table th {
-      background-color: rgba(0, 0, 0, 0.03);
-    }
+    z-index: 10;
   }
 
   .macro-table tr:last-child td {
@@ -3365,7 +3360,7 @@
   .dict-list {
     max-height: 240px;
     overflow-y: auto;
-    padding: 10px;
+    padding: 0;
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 10px;

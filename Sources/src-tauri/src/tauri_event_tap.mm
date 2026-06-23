@@ -1036,15 +1036,17 @@ extern "C" {
                 }
             }
 
-            // Use font size 14, weight Medium for the type label
-            NSFont* typeFont = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
+            // Use font size 11, weight Medium for the type label
+            NSFont* typeFont = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
             NSDictionary* typeSizeAttrs = @{ NSFontAttributeName: typeFont };
             NSSize typeTextSize = [inputLabel sizeWithAttributes:typeSizeAttrs];
 
             // Icon size: fixed width enough for indicator + label, height always 18
             CGFloat labelWidth = vietnamese ? ceil(typeTextSize.width) : 0;
-            CGFloat totalWidth = 15 + labelWidth + 2;
-            if (totalWidth < 18) totalWidth = 18;
+            CGFloat totalWidth = 18;
+            if (vietnamese && labelWidth > 0) {
+                totalWidth = 1 + 16 + 4 + labelWidth + 2;
+            }
 
             NSSize size = NSMakeSize(totalWidth, 18);
             NSImage* image = [NSImage imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect rect) {
@@ -1053,15 +1055,15 @@ extern "C" {
                     color = [color colorWithAlphaComponent:0.4];
                 }
 
-                // Draw the language indicator box (12x12)
-                NSRect indicatorRect = NSMakeRect(1, 3, 12, 12);
+                // Draw the language indicator box (16x16, same as standalone)
+                NSRect indicatorRect = NSMakeRect(1, 1, 16, 16);
                 NSBezierPath* indicatorFrame = [NSBezierPath bezierPathWithRoundedRect:indicatorRect xRadius:2 yRadius:2];
                 [color setFill];
                 [indicatorFrame fill];
 
                 // Draw the language letter inside the indicator box
                 NSString* langText = vietnamese ? @"V" : @"E";
-                NSFont* langFont = [NSFont systemFontOfSize:10 weight:NSFontWeightMedium];
+                NSFont* langFont = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
                 NSDictionary* langSizeAttrs = @{ NSFontAttributeName: langFont };
                 NSSize langTextSize = [langText sizeWithAttributes:langSizeAttrs];
                 CGFloat langX = NSMidX(indicatorRect) - langTextSize.width / 2.0;
@@ -1088,7 +1090,7 @@ extern "C" {
                     [langText drawAtPoint:NSMakePoint(langX, langY) withAttributes:langAttrs];
                 }
 
-                // Draw the input type label to the right with font 14 Medium, vertically centered
+                // Draw the input type label to the right with font 11 Medium, vertically centered
                 if (vietnamese && [inputLabel length] > 0) {
                     NSColor* typeColor = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
                     if (isNotEnglish) {
@@ -1101,7 +1103,7 @@ extern "C" {
                         NSFontAttributeName: typeFont,
                         NSForegroundColorAttributeName: typeColor
                     };
-                    CGFloat typeX = NSMaxX(indicatorRect) + 2;
+                    CGFloat typeX = NSMaxX(indicatorRect) + 4;
                     // Vertically center using ascender: center of rect minus half of ascender gives the baseline
                     CGFloat typeY = NSMidY(rect) - (typeFont.ascender + typeFont.descender) / 2.0;
 
