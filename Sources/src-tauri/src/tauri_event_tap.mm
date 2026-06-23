@@ -167,14 +167,12 @@ extern "C" {
     void queryFrontMostApp() {
         NSRunningApplication *application = [[NSWorkspace sharedWorkspace] frontmostApplication];
         NSString *bundleIdentifier = application.bundleIdentifier;
-        if (bundleIdentifier == nil || [bundleIdentifier compare:VNKEY_BUNDLE] != 0) {
-            if (bundleIdentifier != nil) {
-                _frontMostApp = bundleIdentifier;
-            } else if (application.localizedName != nil) {
-                _frontMostApp = application.localizedName;
-            } else {
-                _frontMostApp = @"UnknownApp";
-            }
+        if (bundleIdentifier != nil) {
+            _frontMostApp = bundleIdentifier;
+        } else if (application.localizedName != nil) {
+            _frontMostApp = application.localizedName;
+        } else {
+            _frontMostApp = @"UnknownApp";
         }
         _frontMostAppCheckedAt = CFAbsoluteTimeGetCurrent();
     }

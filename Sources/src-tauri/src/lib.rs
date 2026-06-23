@@ -32,7 +32,7 @@ static CLIPBOARD_AUTO_HIDE: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
 static CLIPBOARD_MAX_ITEMS: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(30);
 static CLIPBOARD_HOTKEY: std::sync::atomic::AtomicI32 =
-    std::sync::atomic::AtomicI32::new(0x76000109); // Default: Ctrl + V
+    std::sync::atomic::AtomicI32::new(0x56000C09); // Default: Command + Shift + V
 static LAST_CHANGE_COUNT: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 fn default_switch_key() -> i32 {
@@ -89,7 +89,7 @@ fn default_settings() -> Settings {
         clipboard_pin_on_top: 1,
         clipboard_auto_hide: 1,
         clipboard_max_items: 30,
-        clipboard_hotkey: 0x76000109,
+        clipboard_hotkey: 0x56000C09,
     }
 }
 

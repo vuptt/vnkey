@@ -92,13 +92,14 @@
     clipboard_pin_on_top: 1,
     clipboard_auto_hide: 1,
     clipboard_max_items: 30,
-    clipboard_hotkey: 0x76000109, // Ctrl + V
+    clipboard_hotkey: 0x56000C09, // Command + Shift + V
   });
 
   let activeTab = $state(0);
   let isSaving = $state(false);
   let hasAccessibility = $state(true);
   let showResetModal = $state(false);
+  let showMacroModal = $state(false);
 
   // Macros state
   let macrosList = $state<{ shortcut: string; content: string }[]>([]);
@@ -481,6 +482,25 @@
     }
   }
 
+  function openAddMacro() {
+    newShortcut = "";
+    newContent = "";
+    macroError = "";
+    showMacroModal = true;
+  }
+
+  function openEditMacro() {
+    if (selectedMacroShortcut) {
+      const m = macrosList.find(x => x.shortcut === selectedMacroShortcut);
+      if (m) {
+        newShortcut = m.shortcut;
+        newContent = m.content;
+        macroError = "";
+        showMacroModal = true;
+      }
+    }
+  }
+
   async function addMacro() {
     macroError = "";
     const shortcutStr = newShortcut.trim();
@@ -496,6 +516,7 @@
       selectedMacroShortcut = shortcutStr;
       newShortcut = "";
       newContent = "";
+      showMacroModal = false;
     } catch (e: any) {
       macroError = e.toString();
     }
@@ -1336,65 +1357,74 @@
           <div class="card mt-20" class:disabled-zone={settings.use_macro !== 1}>
             <h3>Bảng quản lý viết tắt</h3>
             
-            <!-- Dictionary Layout -->
-            <div class="dictionary-layout mt-15">
+            <!-- Apps Layout for Macros -->
+            <div class="apps-layout mt-15" style="height: 420px;">
               <!-- Left Column: Word List -->
-              <div class="dict-sidebar">
-                <div class="dict-search">
-                  <input type="text" placeholder="Tìm từ gõ tắt..." disabled={settings.use_macro !== 1} bind:value={searchQuery} />
+              <div class="apps-sidebar">
+                <div class="apps-sidebar-header" style="display: flex; gap: 8px;">
+                  <div class="apps-search-box" style="flex: 1;">
+                    <input type="text" placeholder="Tìm từ gõ tắt..." disabled={settings.use_macro !== 1} bind:value={searchQuery} />
+                  </div>
+                  <button class="btn btn-secondary" style="padding: 0 12px; font-weight: bold; font-size: 16px;" onclick={openAddMacro} disabled={settings.use_macro !== 1} aria-label="Thêm từ mới" title="Thêm từ viết tắt mới">+</button>
                 </div>
-                <div class="dict-word-list">
+                <div class="apps-list">
                   {#if filteredMacros.length === 0}
-                    <div class="empty-state-small">Không tìm thấy</div>
+                    <div class="apps-empty-state" style="padding: 20px 0; font-size: 12px;">
+                      <p>Không tìm thấy</p>
+                    </div>
                   {:else}
                     {#each filteredMacros as macro}
-                      <button 
-                        class="dict-word-item {selectedMacroShortcut === macro.shortcut ? 'active' : ''}" 
-                        disabled={settings.use_macro !== 1}
-                        onclick={() => selectedMacroShortcut = macro.shortcut}
+                      <div 
+                        class="app-item {selectedMacroShortcut === macro.shortcut ? 'active' : ''}" 
+                        onclick={() => {
+                          if (settings.use_macro === 1) selectedMacroShortcut = macro.shortcut;
+                        }}
+                        style={settings.use_macro !== 1 ? 'opacity: 0.5; cursor: not-allowed;' : ''}
+                        role="button"
+                        tabindex="0"
+                        onkeydown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            if (settings.use_macro === 1) selectedMacroShortcut = macro.shortcut;
+                          }
+                        }}
                       >
-                        {macro.shortcut}
-                      </button>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span>{macro.shortcut}</span>
+                        </div>
+                        <button
+                          class="app-item-delete"
+                          disabled={settings.use_macro !== 1}
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            deleteMacro(macro.shortcut);
+                            if (selectedMacroShortcut === macro.shortcut) selectedMacroShortcut = null;
+                          }}
+                          aria-label="Xóa từ gõ tắt"
+                        >×</button>
+                      </div>
                     {/each}
                   {/if}
                 </div>
               </div>
 
               <!-- Right Column: Detail & Form -->
-              <div class="dict-main">
+              <div class="apps-content">
                 <!-- Detail View -->
-                <div class="dict-detail-area">
-                  {#if selectedMacro}
-                    <div class="dict-header">
-                      <h2 class="dict-title">{selectedMacro.shortcut}</h2>
-                      <button class="btn-delete" disabled={settings.use_macro !== 1} onclick={() => {
-                        deleteMacro(selectedMacro.shortcut);
-                        if (selectedMacroShortcut === selectedMacro.shortcut) selectedMacroShortcut = null;
-                      }}>Xóa</button>
+                {#if selectedMacro}
+                  <div class="apps-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3>{selectedMacro.shortcut}</h3>
+                    <button class="btn btn-secondary" disabled={settings.use_macro !== 1} onclick={openEditMacro}>Sửa</button>
+                  </div>
+                  <div class="apps-sections-grid">
+                    <div class="app-section">
+                      <p style="white-space: pre-wrap; font-size: 14px; line-height: 1.5; color: var(--text-main); margin: 0; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 6px;">{selectedMacro.content}</p>
                     </div>
-                    <div class="dict-body">
-                      <p class="dict-definition">{selectedMacro.content}</p>
-                    </div>
-                  {:else}
-                    <div class="dict-empty">
-                      Chọn một từ ở cột trái để xem chi tiết, hoặc thêm từ mới bên dưới.
-                    </div>
-                  {/if}
-                </div>
-
-                <hr class="dict-divider" />
-
-                <!-- Add Form -->
-                <div class="dict-form-area">
-                  <h4 class="mb-10">Thêm / Sửa từ gõ tắt</h4>
-                  <input type="text" placeholder="Từ viết tắt (ví dụ: ok)" disabled={settings.use_macro !== 1} bind:value={newShortcut} class="mb-10" />
-                  <textarea placeholder="Nội dung thay thế (hỗ trợ nhập nhiều dòng)..." disabled={settings.use_macro !== 1} bind:value={newContent} rows="3" class="mb-10"></textarea>
-                  <button class="btn btn-primary w-full" disabled={settings.use_macro !== 1} onclick={addMacro}>Lưu thay đổi</button>
-                  
-                  {#if macroError}
-                    <p class="error-text mt-10">{macroError}</p>
-                  {/if}
-                </div>
+                  </div>
+                {:else}
+                  <div class="apps-empty-state">
+                    <p>Chọn một từ ở cột trái để xem chi tiết, hoặc ấn dấu + để thêm từ mới.</p>
+                  </div>
+                {/if}
               </div>
             </div>
           </div>
@@ -1603,7 +1633,7 @@
                 </div>
               </label>
               <label class="toggle-container">
-                <span class="toggle-text">Thiết lập ứng dụng</span>
+                <span class="toggle-text">Ứng dụng</span>
                 <div class="switch">
                   <input type="checkbox" bind:checked={syncAppConfigs} onchange={saveCloudSettings} />
                   <span class="slider"></span>
@@ -1677,10 +1707,7 @@
                 </div>
                 <div class="flex-actions mt-15" style="display: flex; gap: 10px;">
                   <button class="btn btn-primary" onclick={syncToCloud} disabled={isCloudSyncing}>
-                    {isCloudSyncing ? "Đang xử lý..." : "Tải lên R2"}
-                  </button>
-                  <button class="btn btn-secondary" onclick={syncFromCloud} disabled={isCloudSyncing}>
-                    {isCloudSyncing ? "Đang xử lý..." : "Tải về Máy"}
+                    {isCloudSyncing ? "Đang xử lý..." : "Lưu Cấu hình & Bật Đồng bộ"}
                   </button>
                 </div>
               </div>
@@ -1813,7 +1840,7 @@
         </section>
 
         {#if showResetModal}
-          <div class="modal-overlay" onclick={() => showResetModal = false} role="dialog" aria-modal="true" aria-label="Xác nhận đặt lại thiết lập">
+          <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Xác nhận đặt lại thiết lập">
             <div class="modal-content" onclick={(e) => e.stopPropagation()}>
               <h3>Xác nhận đặt lại thiết lập</h3>
               <p>Bạn có chắc chắn muốn đặt lại toàn bộ thiết lập về giá trị mặc định? Hành động này sẽ:</p>
@@ -2226,7 +2253,7 @@
 
     <!-- App Selector Modal -->
     {#if showAppSelectorModal}
-      <div class="app-modal-overlay" onclick={(e) => e.target === e.currentTarget && (showAppSelectorModal = false)} role="dialog" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && (showAppSelectorModal = false)}>
+      <div class="app-modal-overlay" role="dialog" tabindex="-1" onkeydown={(e) => e.key === 'Escape' && (showAppSelectorModal = false)}>
         <div class="app-modal-content">
           <div class="app-modal-header">
             <h3>Thêm ứng dụng</h3>
@@ -2260,154 +2287,37 @@
         </div>
       </div>
     {/if}
+
+    {#if showMacroModal}
+      <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Thêm hoặc sửa từ gõ tắt">
+        <div class="modal-content" onclick={(e) => e.stopPropagation()} style="max-width: 500px;">
+          <h3 style="margin-bottom: 20px;">{newShortcut && macrosList.some(m => m.shortcut === newShortcut) ? 'Chỉnh sửa từ gõ tắt' : 'Thêm từ gõ tắt mới'}</h3>
+          
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px;">Từ viết tắt</label>
+            <input type="text" placeholder="Ví dụ: ok" bind:value={newShortcut} class="form-input" style="width: 100%; box-sizing: border-box;" />
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px;">Nội dung thay thế</label>
+            <textarea placeholder="Nội dung thay thế (hỗ trợ nhập nhiều dòng)..." bind:value={newContent} rows="4" class="form-input" style="width: 100%; box-sizing: border-box; resize: vertical; min-height: 100px; font-family: inherit; padding: 10px;"></textarea>
+          </div>
+
+          {#if macroError}
+            <p class="error-text" style="margin-bottom: 15px; margin-top: 0;">{macroError}</p>
+          {/if}
+
+          <div class="modal-actions" style="margin-top: 0;">
+            <button class="btn btn-secondary" onclick={() => showMacroModal = false}>Hủy</button>
+            <button class="btn btn-primary" onclick={addMacro}>Lưu thay đổi</button>
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 
 <style>
-  /* Dictionary Layout for Macros */
-  .dictionary-layout {
-    display: flex;
-    height: 420px;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    overflow: hidden;
-    background: var(--bg-card);
-  }
-  
-  .dict-sidebar {
-    width: 220px;
-    border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-body);
-  }
 
-  .dict-search {
-    padding: 10px;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .dict-search input {
-    width: 100%;
-    margin: 0;
-    box-sizing: border-box;
-  }
-
-  .dict-word-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-  }
-
-  .dict-word-item {
-    width: 100%;
-    text-align: left;
-    padding: 8px 10px;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-main);
-    margin-bottom: 4px;
-    transition: background-color 0.2s, color 0.2s;
-  }
-
-  .dict-word-item:hover {
-    background: var(--bg-input);
-  }
-
-  .dict-word-item.active {
-    background: var(--color-accent);
-    color: #fff;
-  }
-
-  .empty-state-small {
-    font-size: 13px;
-    color: var(--text-secondary);
-    text-align: center;
-    padding: 20px 0;
-  }
-
-  .dict-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    background: var(--bg-card);
-    overflow-y: auto;
-  }
-
-  .dict-detail-area {
-    flex: 1;
-    margin-bottom: 15px;
-  }
-
-  .dict-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 15px;
-  }
-
-  .dict-title {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text-main);
-  }
-
-  .dict-body {
-    background: var(--bg-input);
-    padding: 15px;
-    border-radius: 6px;
-    min-height: 80px;
-    max-height: 150px;
-    overflow-y: auto;
-  }
-
-  .dict-definition {
-    margin: 0;
-    white-space: pre-wrap;
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--text-main);
-  }
-
-  .dict-empty {
-    color: var(--text-secondary);
-    font-style: italic;
-    text-align: center;
-    margin-top: 40px;
-  }
-
-  .dict-divider {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 0 0 15px 0;
-  }
-
-  .dict-form-area input,
-  .dict-form-area textarea {
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .dict-form-area textarea {
-    resize: vertical;
-    min-height: 80px;
-    padding: 10px;
-    font-family: inherit;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background: var(--bg-input);
-    color: var(--text-main);
-  }
-
-  .dict-form-area textarea:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
 
   :global(.hotkey-icon) {
     font-size: 1.4em;
@@ -2571,6 +2481,10 @@
     margin-bottom: 12px;
     opacity: 0.4;
     color: var(--text-secondary);
+  }
+
+  .apps-empty-state p {
+    font-size: 13px;
   }
   
   .apps-header {
@@ -2992,12 +2906,13 @@
   .app-modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
 
   .app-modal-content {

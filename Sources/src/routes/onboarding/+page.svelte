@@ -37,7 +37,7 @@
 <div class="onboarding-container" data-tauri-drag-region>
   <header class="header" data-tauri-drag-region>
     <img src="/favicon.png" alt="VNKey Logo" class="logo" data-tauri-drag-region />
-    <h1>Kích hoạt VNKey</h1>
+    <h1 style="margin-top: 15px;">Kích hoạt VNKey</h1>
     <p class="subtitle">Bộ gõ tiếng Việt mã nguồn mở thế hệ mới</p>
   </header>
 
@@ -55,9 +55,9 @@
     </div>
     
     <p class="note">
-      💡 VNKey cần quyền Trợ năng để nhận diện và gõ tiếng Việt. 
-      <br/><span style="color: var(--color-accent); font-weight: 500;">VNKey tuyệt đối không thu thập bất kỳ thông tin nào, mọi thứ hoạt động hoàn toàn Offline trên máy của bạn.</span>
+      VNKey cần quyền Trợ năng để nhận diện và gõ tiếng Việt.
     </p>
+    <p class="note" style="margin-top: 12px;">VNKey tuyệt đối không thu thập bất kỳ thông tin nào, mọi thứ hoạt động hoàn toàn offline trên máy của bạn.</p>
   </main>
 
   <footer class="footer">
