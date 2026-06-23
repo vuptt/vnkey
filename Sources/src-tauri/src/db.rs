@@ -176,6 +176,12 @@ pub fn db_clear_english_words() {
     }
 }
 
+pub fn db_reset_english_words() {
+    db_clear_english_words();
+    let words: Vec<String> = INITIAL_ENGLISH_WORDS.iter().map(|s| s.to_string()).collect();
+    db_insert_english_words(&words);
+}
+
 pub fn db_insert_macros(macros: &[(String, String)]) {
     let mut conn_guard = DB_CONN.lock().unwrap();
     if let Some(conn) = conn_guard.as_mut() {

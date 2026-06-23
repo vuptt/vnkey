@@ -33,6 +33,7 @@
     fix_chromium_browser: number;
     perform_layout_compat: number;
     gray_icon: number;
+    show_input_type_on_tray: number;
     convert_tool_dont_alert: number;
     convert_tool_to_all_caps: number;
     convert_tool_to_all_non_caps: number;
@@ -77,6 +78,7 @@
     fix_chromium_browser: 0,
     perform_layout_compat: 0,
     gray_icon: 1,
+    show_input_type_on_tray: 1,
     convert_tool_dont_alert: 0,
     convert_tool_to_all_caps: 0,
     convert_tool_to_all_non_caps: 0,
@@ -96,6 +98,7 @@
   let activeTab = $state(0);
   let isSaving = $state(false);
   let hasAccessibility = $state(true);
+  let showResetModal = $state(false);
 
   // Macros state
   let macrosList = $state<{ shortcut: string; content: string }[]>([]);
@@ -719,6 +722,7 @@
     let stopListeningSettings: (() => void) | undefined;
     let stopListeningAccessibility: (() => void) | undefined;
     let stopListeningShowTab: (() => void) | undefined;
+    let stopListeningEnglishDictReset: (() => void) | undefined;
 
     // Theme sync listener
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -791,10 +795,17 @@
       stopListeningAccessibility = unsub;
     });
 
+    listen<void>("english-dict-reset", () => {
+      loadCustomEnglishWords();
+    }).then((unsub) => {
+      stopListeningEnglishDictReset = unsub;
+    });
+
     return () => {
       if (stopListeningSettings) stopListeningSettings();
       if (stopListeningAccessibility) stopListeningAccessibility();
       if (stopListeningShowTab) stopListeningShowTab();
+      if (stopListeningEnglishDictReset) stopListeningEnglishDictReset();
       if (pollingInterval) clearInterval(pollingInterval);
       mediaQuery.removeEventListener('change', updateTheme);
     };
@@ -1734,6 +1745,14 @@
                   <span class="slider"></span>
                 </div>
               </label>
+
+              <label class="toggle-container">
+                <span class="toggle-text">Hiển thị tên kiểu gõ trên thanh trạng thái <span class="help-tooltip" role="img" aria-label="Thông tin" data-tooltip="Hiển thị tên kiểu gõ (Telex, VNI...) kế bên chữ V trên thanh menu bar.">?</span></span>
+                <div class="switch">
+                  <input type="checkbox" checked={settings.show_input_type_on_tray === 1} onchange={(e) => handleCheckboxChange('show_input_type_on_tray', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
             </div>
           </div>
           
@@ -1773,7 +1792,56 @@
               </label>
             </div>
           </div>
+
+          <div class="card mt-20">
+            <h3>Đặt lại thiết lập</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span class="text-secondary" style="font-size: 13px;">Đặt lại toàn bộ thiết lập về giá trị mặc định ban đầu.</span>
+              <button
+                class="btn"
+                style="background: #ff453a; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;"
+                onclick={() => showResetModal = true}
+              >
+                Đặt lại mặc định
+              </button>
+            </div>
+          </div>
         </section>
+
+        {#if showResetModal}
+          <div class="modal-overlay" onclick={() => showResetModal = false} role="dialog" aria-modal="true" aria-label="Xác nhận đặt lại thiết lập">
+            <div class="modal-content" onclick={(e) => e.stopPropagation()}>
+              <h3>Xác nhận đặt lại thiết lập</h3>
+              <p>Bạn có chắc chắn muốn đặt lại toàn bộ thiết lập về giá trị mặc định? Hành động này sẽ:</p>
+              <ul>
+                <li>Đặt lại tất cả thiết lập gõ phím, bảng mã, chính tả</li>
+                <li>Đặt lại thiết lập hệ thống, hiển thị, tương thích</li>
+                <li>Đặt lại thiết lập công cụ chuyển mã</li>
+                <li>Đặt lại thiết lập Bảng ghi nhớ</li>
+                <li>Đặt lại phím tắt chuyển đổi, công cụ chuyển mã, Bảng ghi nhớ</li>
+                <li>Khôi phục từ điển tiếng Anh về danh sách mặc định ban đầu</li>
+              </ul>
+              <div class="modal-actions">
+                <button class="btn btn-secondary" onclick={() => showResetModal = false}>Hủy</button>
+                <button
+                  class="btn"
+                  style="background: #ff453a; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500;"
+                  onclick={async () => {
+                    showResetModal = false;
+                    try {
+                      await invoke("reset_settings");
+                      alert("Đã đặt lại thiết lập về mặc định.");
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                >
+                  Xác nhận đặt lại
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
 
       <!-- Tab 5: Bảng ghi nhớ -->
       {:else if activeTab === 5}
@@ -3461,5 +3529,55 @@
     background: var(--bg-input);
     color: var(--color-accent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 440px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  }
+
+  .modal-content h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+  }
+
+  .modal-content p {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .modal-content ul {
+    margin: 0 0 20px 0;
+    padding-left: 20px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
   }
 </style>

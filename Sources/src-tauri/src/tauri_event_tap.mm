@@ -957,67 +957,174 @@ extern "C" {
         return false;
     }
 
-    const uint8_t* get_macos_status_icon(bool vietnamese, bool gray, int* len) {
+    const uint8_t* get_macos_status_icon(bool vietnamese, bool gray, int inputType, int* len) {
         @autoreleasepool {
             BOOL isNotEnglish = vOtherLanguage && !_currentInputSourceIsEnglish;
 
-            NSSize size = NSMakeSize(18, 18);
+            // When inputType < 0, don't show input type label (show original small icon)
+            if (inputType < 0) {
+                NSSize size = NSMakeSize(18, 18);
+                NSImage* image = [NSImage imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect rect) {
+                    NSColor* color = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
+                    if (isNotEnglish) {
+                        color = [color colorWithAlphaComponent:0.4];
+                    }
+
+                    NSRect frameRect = NSInsetRect(rect, 1, 1);
+                    NSBezierPath* frame = [NSBezierPath bezierPathWithRoundedRect:frameRect xRadius:2 yRadius:2];
+                    [color setFill];
+                    [frame fill];
+
+                    NSString* text = vietnamese ? @"V" : @"E";
+                    NSFont* font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
+
+                    NSDictionary* sizeAttrs = @{ NSFontAttributeName: font };
+                    NSSize textSize = [text sizeWithAttributes:sizeAttrs];
+
+                    CGFloat x = NSMidX(frameRect) - textSize.width / 2.0;
+                    CGFloat y = NSMidY(frameRect) - font.capHeight / 2.0 + font.descender;
+
+                    if (gray) {
+                        [NSGraphicsContext saveGraphicsState];
+                        [[NSGraphicsContext currentContext] setCompositingOperation:NSCompositingOperationDestinationOut];
+                        NSDictionary* attrs = @{
+                            NSFontAttributeName: font,
+                            NSForegroundColorAttributeName: [NSColor blackColor]
+                        };
+                        [text drawAtPoint:NSMakePoint(x, y) withAttributes:attrs];
+                        [NSGraphicsContext restoreGraphicsState];
+                    } else {
+                        NSColor* textColor = [NSColor whiteColor];
+                        if (isNotEnglish) {
+                            textColor = [textColor colorWithAlphaComponent:0.4];
+                        }
+                        NSDictionary* attrs = @{
+                            NSFontAttributeName: font,
+                            NSForegroundColorAttributeName: textColor
+                        };
+                        [text drawAtPoint:NSMakePoint(x, y) withAttributes:attrs];
+                    }
+                    return YES;
+                }];
+
+                [image setTemplate:gray];
+
+                CGImageRef cgImage = [image CGImageForProposedRect:NULL context:nil hints:nil];
+                NSBitmapImageRep* bitmapRep = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
+                NSData* pngData = [bitmapRep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+
+                if (pngData) {
+                    *len = (int)[pngData length];
+                    uint8_t* buffer = (uint8_t*)malloc(*len);
+                    memcpy(buffer, [pngData bytes], *len);
+                    return buffer;
+                }
+
+                *len = 0;
+                return NULL;
+            }
+
+            // Input type full labels
+            NSString* inputLabel = @"";
+            if (vietnamese) {
+                switch (inputType) {
+                    case 0: inputLabel = @"Telex"; break;
+                    case 1: inputLabel = @"VNI"; break;
+                    case 2: inputLabel = @"S.Telex1"; break;
+                    case 3: inputLabel = @"S.Telex2"; break;
+                    default: inputLabel = @"?"; break;
+                }
+            }
+
+            // Use font size 14, weight Medium for the type label
+            NSFont* typeFont = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
+            NSDictionary* typeSizeAttrs = @{ NSFontAttributeName: typeFont };
+            NSSize typeTextSize = [inputLabel sizeWithAttributes:typeSizeAttrs];
+
+            // Icon size: fixed width enough for indicator + label, height always 18
+            CGFloat labelWidth = vietnamese ? ceil(typeTextSize.width) : 0;
+            CGFloat totalWidth = 15 + labelWidth + 2;
+            if (totalWidth < 18) totalWidth = 18;
+
+            NSSize size = NSMakeSize(totalWidth, 18);
             NSImage* image = [NSImage imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect rect) {
                 NSColor* color = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
                 if (isNotEnglish) {
                     color = [color colorWithAlphaComponent:0.4];
                 }
-                
-                NSRect frameRect = NSInsetRect(rect, 1, 1);
-                NSBezierPath* frame = [NSBezierPath bezierPathWithRoundedRect:frameRect xRadius:2 yRadius:2];
+
+                // Draw the language indicator box (12x12)
+                NSRect indicatorRect = NSMakeRect(1, 3, 12, 12);
+                NSBezierPath* indicatorFrame = [NSBezierPath bezierPathWithRoundedRect:indicatorRect xRadius:2 yRadius:2];
                 [color setFill];
-                [frame fill];
-                
-                NSString* text = vietnamese ? @"V" : @"E";
-                NSFont* font = [NSFont systemFontOfSize:14 weight:NSFontWeightMedium];
-                
-                NSDictionary* sizeAttrs = @{ NSFontAttributeName: font };
-                NSSize textSize = [text sizeWithAttributes:sizeAttrs];
-                
-                CGFloat x = NSMidX(frameRect) - textSize.width / 2.0;
-                CGFloat y = NSMidY(frameRect) - font.capHeight / 2.0 + font.descender;
-                
+                [indicatorFrame fill];
+
+                // Draw the language letter inside the indicator box
+                NSString* langText = vietnamese ? @"V" : @"E";
+                NSFont* langFont = [NSFont systemFontOfSize:10 weight:NSFontWeightMedium];
+                NSDictionary* langSizeAttrs = @{ NSFontAttributeName: langFont };
+                NSSize langTextSize = [langText sizeWithAttributes:langSizeAttrs];
+                CGFloat langX = NSMidX(indicatorRect) - langTextSize.width / 2.0;
+                CGFloat langY = NSMidY(indicatorRect) - langFont.capHeight / 2.0 + langFont.descender;
+
                 if (gray) {
                     [NSGraphicsContext saveGraphicsState];
                     [[NSGraphicsContext currentContext] setCompositingOperation:NSCompositingOperationDestinationOut];
-                    NSDictionary* attrs = @{
-                        NSFontAttributeName: font,
+                    NSDictionary* langAttrs = @{
+                        NSFontAttributeName: langFont,
                         NSForegroundColorAttributeName: [NSColor blackColor]
                     };
-                    [text drawAtPoint:NSMakePoint(x, y) withAttributes:attrs];
+                    [langText drawAtPoint:NSMakePoint(langX, langY) withAttributes:langAttrs];
                     [NSGraphicsContext restoreGraphicsState];
                 } else {
                     NSColor* textColor = [NSColor whiteColor];
                     if (isNotEnglish) {
                         textColor = [textColor colorWithAlphaComponent:0.4];
                     }
-                    NSDictionary* attrs = @{
-                        NSFontAttributeName: font,
+                    NSDictionary* langAttrs = @{
+                        NSFontAttributeName: langFont,
                         NSForegroundColorAttributeName: textColor
                     };
-                    [text drawAtPoint:NSMakePoint(x, y) withAttributes:attrs];
+                    [langText drawAtPoint:NSMakePoint(langX, langY) withAttributes:langAttrs];
                 }
+
+                // Draw the input type label to the right with font 14 Medium, vertically centered
+                if (vietnamese && [inputLabel length] > 0) {
+                    NSColor* typeColor = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
+                    if (isNotEnglish) {
+                        typeColor = [typeColor colorWithAlphaComponent:0.4];
+                    } else if (gray) {
+                        typeColor = [typeColor colorWithAlphaComponent:0.7];
+                    }
+
+                    NSDictionary* typeAttrs = @{
+                        NSFontAttributeName: typeFont,
+                        NSForegroundColorAttributeName: typeColor
+                    };
+                    CGFloat typeX = NSMaxX(indicatorRect) + 2;
+                    // Vertically center using ascender: center of rect minus half of ascender gives the baseline
+                    CGFloat typeY = NSMidY(rect) - (typeFont.ascender + typeFont.descender) / 2.0;
+
+                    [inputLabel drawAtPoint:NSMakePoint(typeX, typeY) withAttributes:typeAttrs];
+                }
+
                 return YES;
             }];
-            
-            [image setTemplate:gray];
-            
+
+            // Do NOT set template for wider icons - let macOS draw them directly
+            [image setTemplate:NO];
+
             CGImageRef cgImage = [image CGImageForProposedRect:NULL context:nil hints:nil];
             NSBitmapImageRep* bitmapRep = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
             NSData* pngData = [bitmapRep representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
-            
+
             if (pngData) {
                 *len = (int)[pngData length];
                 uint8_t* buffer = (uint8_t*)malloc(*len);
                 memcpy(buffer, [pngData bytes], *len);
                 return buffer;
             }
-            
+
             *len = 0;
             return NULL;
         }

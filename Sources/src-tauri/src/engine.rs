@@ -84,7 +84,7 @@ extern "C" {
     pub fn set_convert_tool_hotkey(val: c_int);
 
     #[cfg(target_os = "macos")]
-    fn get_macos_status_icon(vietnamese: bool, gray: bool, len: *mut c_int) -> *const u8;
+    fn get_macos_status_icon(vietnamese: bool, gray: bool, input_type: c_int, len: *mut c_int) -> *const u8;
     #[cfg(target_os = "macos")]
     fn free_macos_status_icon(bytes: *const u8);
 
@@ -221,10 +221,10 @@ pub fn set_custom_english_words(content: &str) {
 
 
 #[cfg(target_os = "macos")]
-pub fn macos_status_icon(vietnamese: bool, gray: bool) -> Option<Vec<u8>> {
+pub fn macos_status_icon(vietnamese: bool, gray: bool, input_type: i32) -> Option<Vec<u8>> {
     unsafe {
         let mut len: c_int = 0;
-        let ptr = get_macos_status_icon(vietnamese, gray, &mut len);
+        let ptr = get_macos_status_icon(vietnamese, gray, input_type, &mut len);
         if ptr.is_null() || len <= 0 {
             return None;
         }

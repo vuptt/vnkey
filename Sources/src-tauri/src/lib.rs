@@ -23,6 +23,7 @@ pub fn get_app_handle() -> Option<tauri::AppHandle> {
 }
 static TRAY_ICON: OnceLock<TrayIcon<tauri::Wry>> = OnceLock::new();
 static GRAY_ICON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+static SHOW_INPUT_TYPE_ON_TRAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 static CLIPBOARD_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 static CLIPBOARD_PIN_ON_TOP: std::sync::atomic::AtomicBool =
@@ -42,6 +43,53 @@ fn default_switch_key() -> i32 {
     #[cfg(not(target_os = "macos"))]
     {
         0x20000920 // ctrl + shift + space
+    }
+}
+
+fn default_settings() -> Settings {
+    Settings {
+        language: 1,
+        input_type: 0,
+        free_mark: 0,
+        code_table: 0,
+        switch_key_status: default_switch_key(),
+        check_spelling: 1,
+        use_modern_orthography: 0,
+        quick_telex: 0,
+        restore_if_wrong_spelling: 0,
+        use_english_dictionary: 1,
+        fix_recommend_browser: 1,
+        use_macro: 1,
+        use_macro_in_english_mode: 0,
+        auto_caps_macro: 1,
+        use_smart_switch_key: 1,
+        upper_case_first_char: 0,
+        temp_off_spelling: 0,
+        allow_consonant_zfwj: 0,
+        quick_start_consonant: 0,
+        quick_end_consonant: 0,
+        remember_code: 1,
+        other_language: 1,
+        temp_off_vnkey: 0,
+        send_key_step_by_step: 0,
+        fix_chromium_browser: 0,
+        perform_layout_compat: 0,
+        gray_icon: 1,
+        show_input_type_on_tray: 1,
+        convert_tool_dont_alert: 0,
+        convert_tool_to_all_caps: 0,
+        convert_tool_to_all_non_caps: 0,
+        convert_tool_to_caps_first_letter: 0,
+        convert_tool_to_caps_each_word: 0,
+        convert_tool_remove_mark: 0,
+        convert_tool_from_code: 0,
+        convert_tool_to_code: 0,
+        convert_tool_hotkey: 0xFE0000FEu32 as i32,
+        clipboard_enabled: 1,
+        clipboard_pin_on_top: 1,
+        clipboard_auto_hide: 1,
+        clipboard_max_items: 30,
+        clipboard_hotkey: 0x76000109,
     }
 }
 
@@ -74,6 +122,7 @@ pub struct Settings {
     pub fix_chromium_browser: i32,
     pub perform_layout_compat: i32,
     pub gray_icon: i32,
+    pub show_input_type_on_tray: i32,
     pub convert_tool_dont_alert: i32,
     pub convert_tool_to_all_caps: i32,
     pub convert_tool_to_all_non_caps: i32,
@@ -359,6 +408,11 @@ fn get_settings() -> Settings {
             } else {
                 0
             },
+            show_input_type_on_tray: if SHOW_INPUT_TYPE_ON_TRAY.load(std::sync::atomic::Ordering::Relaxed) {
+                1
+            } else {
+                0
+            },
             convert_tool_dont_alert: engine::get_convert_tool_dont_alert(),
             convert_tool_to_all_caps: engine::get_convert_tool_to_all_caps(),
             convert_tool_to_all_non_caps: engine::get_convert_tool_to_all_non_caps(),
@@ -561,6 +615,10 @@ fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
         settings.gray_icon == 1,
         std::sync::atomic::Ordering::Relaxed,
     );
+    SHOW_INPUT_TYPE_ON_TRAY.store(
+        settings.show_input_type_on_tray == 1,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     CLIPBOARD_ENABLED.store(
         settings.clipboard_enabled == 1,
         std::sync::atomic::Ordering::Relaxed,
@@ -598,6 +656,77 @@ fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
     }
     save_settings_to_disk(&handle, &settings);
     let _ = handle.emit("settings-changed", settings.clone());
+    update_tray_icon(&handle);
+}
+
+#[tauri::command]
+fn reset_settings(handle: tauri::AppHandle) {
+    let settings = default_settings();
+    unsafe {
+        engine::vLanguage = settings.language;
+        engine::vInputType = settings.input_type;
+        engine::vFreeMark = settings.free_mark;
+        engine::vCodeTable = settings.code_table;
+        engine::vSwitchKeyStatus = settings.switch_key_status;
+        engine::vCheckSpelling = settings.check_spelling;
+        engine::vUseModernOrthography = settings.use_modern_orthography;
+        engine::vQuickTelex = settings.quick_telex;
+        engine::vRestoreIfWrongSpelling = settings.restore_if_wrong_spelling;
+        engine::vUseEnglishDictionary = settings.use_english_dictionary;
+        engine::vFixRecommendBrowser = settings.fix_recommend_browser;
+        engine::vUseMacro = settings.use_macro;
+        engine::vUseMacroInEnglishMode = settings.use_macro_in_english_mode;
+        engine::vAutoCapsMacro = settings.auto_caps_macro;
+        engine::vUseSmartSwitchKey = settings.use_smart_switch_key;
+        engine::vUpperCaseFirstChar = settings.upper_case_first_char;
+        engine::vTempOffSpelling = settings.temp_off_spelling;
+        engine::vAllowConsonantZFWJ = settings.allow_consonant_zfwj;
+        engine::vQuickStartConsonant = settings.quick_start_consonant;
+        engine::vQuickEndConsonant = settings.quick_end_consonant;
+        engine::vRememberCode = settings.remember_code;
+        engine::vOtherLanguage = settings.other_language;
+        engine::vTempOffVNKey = settings.temp_off_vnkey;
+        engine::vSendKeyStepByStep = settings.send_key_step_by_step;
+        engine::vFixChromiumBrowser = settings.fix_chromium_browser;
+        engine::vPerformLayoutCompat = settings.perform_layout_compat;
+        engine::set_convert_tool_dont_alert(settings.convert_tool_dont_alert);
+        engine::set_convert_tool_to_all_caps(settings.convert_tool_to_all_caps);
+        engine::set_convert_tool_to_all_non_caps(settings.convert_tool_to_all_non_caps);
+        engine::set_convert_tool_to_caps_first_letter(settings.convert_tool_to_caps_first_letter);
+        engine::set_convert_tool_to_caps_each_word(settings.convert_tool_to_caps_each_word);
+        engine::set_convert_tool_remove_mark(settings.convert_tool_remove_mark);
+        engine::set_convert_tool_from_code(settings.convert_tool_from_code);
+        engine::set_convert_tool_to_code(settings.convert_tool_to_code);
+        engine::set_convert_tool_hotkey(settings.convert_tool_hotkey);
+        engine::startNewSession();
+    }
+    GRAY_ICON.store(settings.gray_icon == 1, std::sync::atomic::Ordering::Relaxed);
+    CLIPBOARD_ENABLED.store(settings.clipboard_enabled == 1, std::sync::atomic::Ordering::Relaxed);
+    CLIPBOARD_PIN_ON_TOP.store(settings.clipboard_pin_on_top == 1, std::sync::atomic::Ordering::Relaxed);
+    CLIPBOARD_AUTO_HIDE.store(settings.clipboard_auto_hide == 1, std::sync::atomic::Ordering::Relaxed);
+    CLIPBOARD_MAX_ITEMS.store(settings.clipboard_max_items, std::sync::atomic::Ordering::Relaxed);
+    if let Some(window) = handle.get_webview_window("clipboard") {
+        let _ = window.set_always_on_top(settings.clipboard_pin_on_top == 1);
+    }
+    if settings.clipboard_hotkey != 0 {
+        CLIPBOARD_HOTKEY.store(settings.clipboard_hotkey, std::sync::atomic::Ordering::Relaxed);
+    }
+    #[cfg(target_os = "macos")]
+    {
+        engine::macos_set_clipboard_enabled_val(settings.clipboard_enabled == 1);
+        if settings.clipboard_hotkey != 0 {
+            engine::macos_set_clipboard_hotkey_val(settings.clipboard_hotkey);
+        }
+    }
+    if 0 != settings.code_table {
+        engine::code_table_changed();
+    }
+    save_settings_to_disk(&handle, &settings);
+    db::db_reset_english_words();
+    let words = db::db_get_english_words();
+    engine::set_custom_english_words(&words.join("\n"));
+    let _ = handle.emit("settings-changed", settings.clone());
+    let _ = handle.emit("english-dict-reset", true);
     update_tray_icon(&handle);
 }
 
@@ -771,7 +900,13 @@ fn get_tray_icon(language: i32) -> tauri::image::Image<'static> {
     {
         let is_vietnamese = language == 1;
         let is_gray = GRAY_ICON.load(std::sync::atomic::Ordering::Relaxed);
-        if let Some(png_bytes) = engine::macos_status_icon(is_vietnamese, is_gray) {
+        let show_label = SHOW_INPUT_TYPE_ON_TRAY.load(std::sync::atomic::Ordering::Relaxed);
+        let input_type = if show_label {
+            unsafe { engine::vInputType }
+        } else {
+            -1 // signal to ObjC: don't show label
+        };
+        if let Some(png_bytes) = engine::macos_status_icon(is_vietnamese, is_gray, input_type) {
             if let Ok(img) = tauri::image::Image::from_bytes(&png_bytes) {
                 return img;
             }
@@ -1639,6 +1774,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             update_settings,
+            reset_settings,
             disable_hotkeys,
             list_macros,
             upsert_macro,
