@@ -102,6 +102,8 @@
 
   // Macros state
   let macrosList = $state<{ shortcut: string; content: string }[]>([]);
+  let selectedMacroShortcut = $state<string | null>(null);
+  let selectedMacro = $derived(macrosList.find(m => m.shortcut === selectedMacroShortcut));
   let searchQuery = $state("");
 
   // English Dictionary state
@@ -175,7 +177,6 @@
   let cloudAccessKey = $state("");
   let cloudSecretKey = $state("");
   let cloudBucketName = $state("");
-  let cloudSyncPassword = $state("");
   let isCloudSyncing = $state(false);
   let cloudSyncMessage = $state("");
   let cloudSyncError = $state(false);
@@ -243,21 +244,24 @@
 
   function formatHotkeyString(info: ReturnType<typeof unpackHotkey>) {
     let parts = [];
-    if (info.ctrl) parts.push("⌃ Control");
-    if (info.option) parts.push("⌥ Option");
-    if (info.command) parts.push("⌘ Command");
-    if (info.shift) parts.push("⇧ Shift");
+    const icon = (c: string) => `<span class="hotkey-icon">${c}</span>`;
+    
+    if (info.ctrl) parts.push(`${icon("⌃")} Control`);
+    if (info.option) parts.push(`${icon("⌥")} Option`);
+    if (info.command) parts.push(`${icon("⌘")} Command`);
+    if (info.shift) parts.push(`${icon("⇧")} Shift`);
     
     if (info.keyCode === 0xfe) {
       if (parts.length === 0) return "Chưa thiết lập";
     } else if (info.keyCode === 49) {
-      parts.push("␣ Space");
+      parts.push(`${icon("␣")} Space`);
     } else if (info.charStr) {
-      parts.push(info.charStr);
+      const safeChar = info.charStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').toUpperCase();
+      parts.push(`<span class="hotkey-text">${safeChar}</span>`);
     } else {
-      parts.push(`Key ${info.keyCode}`);
+      parts.push(`<span class="hotkey-text">Key ${info.keyCode}</span>`);
     }
-    return parts.join(" + ");
+    return parts.join('<span class="hotkey-plus"> + </span>');
   }
 
   async function checkAccessibility() {
@@ -479,15 +483,17 @@
 
   async function addMacro() {
     macroError = "";
-    if (!newShortcut.trim() || !newContent.trim()) {
+    const shortcutStr = newShortcut.trim();
+    if (!shortcutStr || !newContent.trim()) {
       macroError = "Từ gõ tắt và nội dung không được để trống.";
       return;
     }
     try {
       macrosList = await invoke<typeof macrosList>("upsert_macro", {
-        shortcut: newShortcut.trim(),
-        content: newContent.trim()
+        shortcut: shortcutStr,
+        content: newContent.trim(),
       });
+      selectedMacroShortcut = shortcutStr;
       newShortcut = "";
       newContent = "";
     } catch (e: any) {
@@ -817,7 +823,6 @@
       cloudAccessKey = await invoke<string>("get_kv", { key: "cloudAccessKey" }) || "";
       cloudSecretKey = await invoke<string>("get_kv", { key: "cloudSecretKey" }) || "";
       cloudBucketName = await invoke<string>("get_kv", { key: "cloudBucketName" }) || "";
-      cloudSyncPassword = await invoke<string>("get_kv", { key: "cloudSyncPassword" }) || "";
       syncMethod = await invoke<string>("get_kv", { key: "syncMethod" }) || "r2";
       let gToken = await invoke<string>("get_kv", { key: "gdriveAccessToken" }) || "";
       gdriveConnected = gToken !== "";
@@ -837,7 +842,6 @@
       await invoke("set_kv", { key: "cloudAccessKey", value: cloudAccessKey });
       await invoke("set_kv", { key: "cloudSecretKey", value: cloudSecretKey });
       await invoke("set_kv", { key: "cloudBucketName", value: cloudBucketName });
-      await invoke("set_kv", { key: "cloudSyncPassword", value: cloudSyncPassword });
       await invoke("set_kv", { key: "syncMethod", value: syncMethod });
       await invoke("set_kv", { key: "syncSettings", value: syncSettings ? "1" : "0" });
       await invoke("set_kv", { key: "syncEnglishDict", value: syncEnglishDict ? "1" : "0" });
@@ -850,7 +854,7 @@
   }
 
   async function syncToCloud() {
-    if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName || !cloudSyncPassword) {
+    if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName) {
       cloudSyncError = false;
       cloudSyncMessage = "";
       return;
@@ -864,8 +868,7 @@
         accountId: cloudAccountId,
         accessKey: cloudAccessKey,
         secretKey: cloudSecretKey,
-        bucketName: cloudBucketName,
-        syncPassword: cloudSyncPassword
+        bucketName: cloudBucketName
       });
       cloudSyncMessage = "Đồng bộ lên đám mây thành công!";
     } catch (e: any) {
@@ -877,7 +880,7 @@
   }
 
   async function syncFromCloud() {
-    if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName || !cloudSyncPassword) {
+    if (!cloudAccountId || !cloudAccessKey || !cloudSecretKey || !cloudBucketName) {
       cloudSyncError = false;
       cloudSyncMessage = "";
       return;
@@ -891,8 +894,7 @@
         accountId: cloudAccountId,
         accessKey: cloudAccessKey,
         secretKey: cloudSecretKey,
-        bucketName: cloudBucketName,
-        syncPassword: cloudSyncPassword
+        bucketName: cloudBucketName
       });
       cloudSyncMessage = "Tải dữ liệu từ đám mây thành công!";
       loadMacros();
@@ -966,17 +968,12 @@
   }
 
   async function syncToGdrive() {
-    if (!cloudSyncPassword) {
-      cloudSyncError = false;
-      cloudSyncMessage = "";
-      return;
-    }
     isCloudSyncing = true;
     cloudSyncMessage = "Đang tải dữ liệu lên Google Drive...";
     cloudSyncError = false;
     try {
       await saveCloudSettings();
-      await invoke("sync_to_gdrive", { syncPassword: cloudSyncPassword });
+      await invoke("sync_to_gdrive");
       cloudSyncMessage = "Đồng bộ lên Google Drive thành công!";
     } catch (e: any) {
       cloudSyncError = true;
@@ -987,17 +984,12 @@
   }
 
   async function syncFromGdrive() {
-    if (!cloudSyncPassword) {
-      cloudSyncError = false;
-      cloudSyncMessage = "";
-      return;
-    }
     isCloudSyncing = true;
     cloudSyncMessage = "Đang tải dữ liệu từ Google Drive...";
     cloudSyncError = false;
     try {
       await saveCloudSettings();
-      await invoke("sync_from_gdrive", { syncPassword: cloudSyncPassword });
+      await invoke("sync_from_gdrive");
       cloudSyncMessage = "Tải dữ liệu từ Google Drive thành công!";
       loadMacros();
     } catch (e: any) {
@@ -1126,7 +1118,7 @@
                       onclick={() => setRecordingSwitchKey(true)}
                       title="Click và nhấn tổ hợp phím để đặt phím tắt"
                     >
-                      {formatHotkeyString(switchKeyInfo)}
+                      {@html formatHotkeyString(switchKeyInfo)}
                     </button>
                   {/if}
                 </div>
@@ -1344,47 +1336,66 @@
           <div class="card mt-20" class:disabled-zone={settings.use_macro !== 1}>
             <h3>Bảng quản lý viết tắt</h3>
             
-            <!-- Add New Macro Form -->
-            <div class="macro-form mt-10">
-              <input type="text" placeholder="Từ viết tắt (ví dụ: ok)" disabled={settings.use_macro !== 1} bind:value={newShortcut} />
-              <input type="text" placeholder="Nội dung thay thế (ví dụ: OpenKey)" disabled={settings.use_macro !== 1} bind:value={newContent} onkeydown={(e) => e.key === 'Enter' && addMacro()} />
-              <button class="btn btn-primary" disabled={settings.use_macro !== 1} onclick={addMacro}>Thêm mới</button>
-            </div>
-            
-            {#if macroError}
-              <p class="error-text">{macroError}</p>
-            {/if}
-
-            <div class="macro-search mt-15">
-              <input type="text" placeholder="Tìm kiếm nhanh từ gõ tắt..." disabled={settings.use_macro !== 1} bind:value={searchQuery} />
-            </div>
-
-            <!-- Scrollable Macro Table -->
-            <div class="macro-list-container mt-15">
-              {#if filteredMacros.length === 0}
-                <div class="empty-state">Không tìm thấy mục gõ tắt nào.</div>
-              {:else}
-                <table class="macro-table">
-                  <thead>
-                    <tr>
-                      <th>Từ tắt</th>
-                      <th>Nội dung thay thế</th>
-                      <th style="width: 80px; text-align: center;">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+            <!-- Dictionary Layout -->
+            <div class="dictionary-layout mt-15">
+              <!-- Left Column: Word List -->
+              <div class="dict-sidebar">
+                <div class="dict-search">
+                  <input type="text" placeholder="Tìm từ gõ tắt..." disabled={settings.use_macro !== 1} bind:value={searchQuery} />
+                </div>
+                <div class="dict-word-list">
+                  {#if filteredMacros.length === 0}
+                    <div class="empty-state-small">Không tìm thấy</div>
+                  {:else}
                     {#each filteredMacros as macro}
-                      <tr>
-                        <td class="font-mono font-bold">{macro.shortcut}</td>
-                        <td>{macro.content}</td>
-                        <td style="text-align: center;">
-                          <button class="btn-delete" disabled={settings.use_macro !== 1} onclick={() => deleteMacro(macro.shortcut)}>Xóa</button>
-                        </td>
-                      </tr>
+                      <button 
+                        class="dict-word-item {selectedMacroShortcut === macro.shortcut ? 'active' : ''}" 
+                        disabled={settings.use_macro !== 1}
+                        onclick={() => selectedMacroShortcut = macro.shortcut}
+                      >
+                        {macro.shortcut}
+                      </button>
                     {/each}
-                  </tbody>
-                </table>
-              {/if}
+                  {/if}
+                </div>
+              </div>
+
+              <!-- Right Column: Detail & Form -->
+              <div class="dict-main">
+                <!-- Detail View -->
+                <div class="dict-detail-area">
+                  {#if selectedMacro}
+                    <div class="dict-header">
+                      <h2 class="dict-title">{selectedMacro.shortcut}</h2>
+                      <button class="btn-delete" disabled={settings.use_macro !== 1} onclick={() => {
+                        deleteMacro(selectedMacro.shortcut);
+                        if (selectedMacroShortcut === selectedMacro.shortcut) selectedMacroShortcut = null;
+                      }}>Xóa</button>
+                    </div>
+                    <div class="dict-body">
+                      <p class="dict-definition">{selectedMacro.content}</p>
+                    </div>
+                  {:else}
+                    <div class="dict-empty">
+                      Chọn một từ ở cột trái để xem chi tiết, hoặc thêm từ mới bên dưới.
+                    </div>
+                  {/if}
+                </div>
+
+                <hr class="dict-divider" />
+
+                <!-- Add Form -->
+                <div class="dict-form-area">
+                  <h4 class="mb-10">Thêm / Sửa từ gõ tắt</h4>
+                  <input type="text" placeholder="Từ viết tắt (ví dụ: ok)" disabled={settings.use_macro !== 1} bind:value={newShortcut} class="mb-10" />
+                  <textarea placeholder="Nội dung thay thế (hỗ trợ nhập nhiều dòng)..." disabled={settings.use_macro !== 1} bind:value={newContent} rows="3" class="mb-10"></textarea>
+                  <button class="btn btn-primary w-full" disabled={settings.use_macro !== 1} onclick={addMacro}>Lưu thay đổi</button>
+                  
+                  {#if macroError}
+                    <p class="error-text mt-10">{macroError}</p>
+                  {/if}
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1495,7 +1506,7 @@
                       onclick={() => setRecordingConvertHotkey(true)}
                       title="Click và nhấn tổ hợp phím để đặt phím tắt"
                     >
-                      {formatHotkeyString(convertHotkeyInfo)}
+                      {@html formatHotkeyString(convertHotkeyInfo)}
                     </button>
                   {/if}
                 </div>
@@ -1611,13 +1622,6 @@
                 Cloudflare R2
               </button>
             </div>
-            
-            <div class="form-group mb-15">
-              <label for="cloud-sync-password">Mật khẩu mã hoá (E2EE)</label>
-              <input type="password" id="cloud-sync-password" bind:value={cloudSyncPassword} onchange={saveCloudSettings} placeholder="Bắt buộc để bảo vệ dữ liệu" class="form-input" />
-              <p style="font-size: 12px; color: #666; margin-top: 4px;">Dữ liệu sẽ được mã hoá bằng mật khẩu này trước khi tải lên. Nếu quên, bạn sẽ mất dữ liệu đồng bộ.</p>
-            </div>
-
 
 
             {#if syncMethod === 'gdrive'}
@@ -1917,7 +1921,7 @@
                     disabled={settings.clipboard_enabled !== 1}
                     onclick={() => setRecordingClipboardHotkey(true)}
                   >
-                    {formatHotkeyString(clipboardHotkeyInfo)}
+                    {@html formatHotkeyString(clipboardHotkeyInfo)}
                   </button>
                 {/if}
               </div>
@@ -2259,6 +2263,167 @@
   </div>
 
 <style>
+  /* Dictionary Layout for Macros */
+  .dictionary-layout {
+    display: flex;
+    height: 420px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg-card);
+  }
+  
+  .dict-sidebar {
+    width: 220px;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-body);
+  }
+
+  .dict-search {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .dict-search input {
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+  }
+
+  .dict-word-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  .dict-word-item {
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-main);
+    margin-bottom: 4px;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  .dict-word-item:hover {
+    background: var(--bg-input);
+  }
+
+  .dict-word-item.active {
+    background: var(--color-accent);
+    color: #fff;
+  }
+
+  .empty-state-small {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  .dict-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background: var(--bg-card);
+    overflow-y: auto;
+  }
+
+  .dict-detail-area {
+    flex: 1;
+    margin-bottom: 15px;
+  }
+
+  .dict-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+  }
+
+  .dict-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .dict-body {
+    background: var(--bg-input);
+    padding: 15px;
+    border-radius: 6px;
+    min-height: 80px;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .dict-definition {
+    margin: 0;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-main);
+  }
+
+  .dict-empty {
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+    margin-top: 40px;
+  }
+
+  .dict-divider {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 0 0 15px 0;
+  }
+
+  .dict-form-area input,
+  .dict-form-area textarea {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .dict-form-area textarea {
+    resize: vertical;
+    min-height: 80px;
+    padding: 10px;
+    font-family: inherit;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-main);
+  }
+
+  .dict-form-area textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+  }
+
+  :global(.hotkey-icon) {
+    font-size: 1.4em;
+    vertical-align: -0.1em;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-weight: 500;
+  }
+  :global(.hotkey-plus) {
+    opacity: 0.5;
+    margin: 0 4px;
+    font-weight: 400;
+  }
+  :global(.hotkey-text) {
+    font-weight: 600;
+  }
+
   /* Apps Tab Styles */
   .apps-layout {
     display: flex;

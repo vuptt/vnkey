@@ -1626,13 +1626,16 @@ fn update_dock_icon(app: &tauri::AppHandle) {
     }
 }
 
+fn get_system_sync_password() -> String {
+    option_env!("VNKEY_SYNC_PASSWORD").unwrap_or("VNKey@SecureSync2026").to_string()
+}
+
 #[tauri::command]
 async fn sync_to_cloud(
     account_id: String,
     access_key: String,
     secret_key: String,
     bucket_name: String,
-    sync_password: String,
 ) -> Result<(), String> {
     let creds = cloud_sync::CloudCredentials {
         account_id,
@@ -1640,7 +1643,7 @@ async fn sync_to_cloud(
         secret_key,
         bucket_name,
     };
-    cloud_sync::upload_sync_data(&creds, &sync_password).await.map_err(|e| e.to_string())
+    cloud_sync::upload_sync_data(&creds, &get_system_sync_password()).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1649,7 +1652,6 @@ async fn sync_from_cloud(
     access_key: String,
     secret_key: String,
     bucket_name: String,
-    sync_password: String,
 ) -> Result<(), String> {
     let creds = cloud_sync::CloudCredentials {
         account_id,
@@ -1657,7 +1659,7 @@ async fn sync_from_cloud(
         secret_key,
         bucket_name,
     };
-    cloud_sync::download_sync_data(&creds, &sync_password).await.map_err(|e| e.to_string())
+    cloud_sync::download_sync_data(&creds, &get_system_sync_password()).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1682,13 +1684,13 @@ async fn poll_google_auth(device_code: String) -> Result<google_sync::TokenRespo
 }
 
 #[tauri::command]
-async fn sync_to_gdrive(sync_password: String) -> Result<(), String> {
-    google_sync::upload_sync_data_gdrive(&sync_password).await
+async fn sync_to_gdrive() -> Result<(), String> {
+    google_sync::upload_sync_data_gdrive(&get_system_sync_password()).await
 }
 
 #[tauri::command]
-async fn sync_from_gdrive(sync_password: String) -> Result<(), String> {
-    google_sync::download_sync_data_gdrive(&sync_password).await
+async fn sync_from_gdrive() -> Result<(), String> {
+    google_sync::download_sync_data_gdrive(&get_system_sync_password()).await
 }
 
 static LAST_SYNC_REQUEST: AtomicU64 = AtomicU64::new(0);
@@ -1709,10 +1711,7 @@ fn auto_sync_to_cloud() {
 
         // Find out which sync method the user prefers
         let sync_method = db::db_get_kv("syncMethod").unwrap_or_else(|| "r2".to_string());
-        let sync_password = db::db_get_kv("cloudSyncPassword").unwrap_or_default();
-        if sync_password.is_empty() {
-            return;
-        }
+        let sync_password = get_system_sync_password();
 
         if sync_method == "gdrive" {
             if let Err(e) = google_sync::upload_sync_data_gdrive(&sync_password).await {

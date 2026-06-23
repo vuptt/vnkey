@@ -1036,8 +1036,8 @@ extern "C" {
                 }
             }
 
-            // Use font size 11, weight Medium for the type label
-            NSFont* typeFont = [NSFont systemFontOfSize:11 weight:NSFontWeightMedium];
+            // Use font size 13, weight Medium for the type label
+            NSFont* typeFont = [NSFont systemFontOfSize:13 weight:NSFontWeightMedium];
             NSDictionary* typeSizeAttrs = @{ NSFontAttributeName: typeFont };
             NSSize typeTextSize = [inputLabel sizeWithAttributes:typeSizeAttrs];
 
@@ -1090,7 +1090,7 @@ extern "C" {
                     [langText drawAtPoint:NSMakePoint(langX, langY) withAttributes:langAttrs];
                 }
 
-                // Draw the input type label to the right with font 11 Medium, vertically centered
+                // Draw the input type label to the right with font 13 Medium, vertically centered
                 if (vietnamese && [inputLabel length] > 0) {
                     NSColor* typeColor = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
                     if (isNotEnglish) {
@@ -1104,8 +1104,8 @@ extern "C" {
                         NSForegroundColorAttributeName: typeColor
                     };
                     CGFloat typeX = NSMaxX(indicatorRect) + 4;
-                    // Vertically center using ascender: center of rect minus half of ascender gives the baseline
-                    CGFloat typeY = NSMidY(rect) - (typeFont.ascender + typeFont.descender) / 2.0;
+                    // Vertically center to match the visual height of the main icon
+                    CGFloat typeY = NSMidY(indicatorRect) - typeFont.capHeight / 2.0 + typeFont.descender;
 
                     [inputLabel drawAtPoint:NSMakePoint(typeX, typeY) withAttributes:typeAttrs];
                 }
