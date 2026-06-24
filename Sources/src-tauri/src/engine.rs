@@ -132,6 +132,20 @@ extern "C" {
     #[cfg(target_os = "macos")]
     pub fn macos_get_application_info_by_bundle_id_json(bundle_id_cstr: *const c_char) -> *mut c_char;
     pub fn macos_get_application_info_by_name_json(name_cstr: *const c_char) -> *mut c_char;
+    #[cfg(target_os = "macos")]
+    pub fn macos_is_another_instance_running() -> bool;
+    #[cfg(target_os = "macos")]
+    pub fn macos_activate_other_instance();
+}
+
+#[cfg(target_os = "macos")]
+pub fn is_another_instance_running() -> bool {
+    unsafe { macos_is_another_instance_running() }
+}
+
+#[cfg(target_os = "macos")]
+pub fn activate_other_instance() {
+    unsafe { macos_activate_other_instance(); }
 }
 
 pub fn init() {

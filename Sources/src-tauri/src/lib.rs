@@ -1282,12 +1282,27 @@ fn build_tray_menu<R: tauri::Runtime>(handle: &tauri::AppHandle<R>) -> Menu<R> {
     menu
 }
 
+static LAST_TRAY_STATE: OnceLock<Mutex<(i32, bool, bool, i32, i32)>> = OnceLock::new();
+
 fn update_tray_icon<R: tauri::Runtime>(handle: &tauri::AppHandle<R>) {
     if let Some(tray) = TRAY_ICON.get() {
         let lang = unsafe { engine::vLanguage };
+        let gray = GRAY_ICON.load(std::sync::atomic::Ordering::Relaxed);
+        let show_label = SHOW_INPUT_TYPE_ON_TRAY.load(std::sync::atomic::Ordering::Relaxed);
+        let input_type = unsafe { engine::vInputType };
+        let code_table = unsafe { engine::vCodeTable };
+
+        let state_mutex = LAST_TRAY_STATE.get_or_init(|| Mutex::new((-1, false, false, -1, -1)));
+        if let Ok(mut last_state) = state_mutex.lock() {
+            if *last_state == (lang, gray, show_label, input_type, code_table) {
+                return;
+            }
+            *last_state = (lang, gray, show_label, input_type, code_table);
+        }
+
         let icon = get_tray_icon(lang);
         let _ = tray.set_icon(Some(icon));
-        let _ = tray.set_icon_as_template(GRAY_ICON.load(std::sync::atomic::Ordering::Relaxed));
+        let _ = tray.set_icon_as_template(gray);
         let menu = build_tray_menu(handle);
         let _ = tray.set_menu(Some(menu));
     }
@@ -1818,6 +1833,14 @@ fn auto_sync_to_cloud() {
 pub fn run() {
     // Initialize C++ input engine
     engine::init();
+
+    #[cfg(target_os = "macos")]
+    {
+        if engine::is_another_instance_running() {
+            engine::activate_other_instance();
+            std::process::exit(0);
+        }
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

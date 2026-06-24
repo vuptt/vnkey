@@ -12,6 +12,12 @@
 #include <sstream>
 #include <unordered_set>
 
+const std::string& getDefaultEnglishWords() {
+  static const std::string words =
+      "password rust issue coffee wrong software framework network browser download website search support workflow feedback dashboard deadline meeting google excel slack chrome youtube facebook instagram twitter microsoft office word powerpoint code vs notion telegram laptop email login logout upload file backend frontend button modal form checkbox dropdown github json http websocket database macos windows linux benchmark median p95 p99 space enter tab ai api cpu gpu wifi bluetooth iphone android docker kubernetes javascript typescript python swift production antivirus free write screen user";
+  return words;
+}
+
 namespace {
 
 // Keep sorted for binary_search. This is a protected lexicon, not a complete
@@ -32,8 +38,20 @@ std::string lowerAscii(const std::string &word) {
 }
 
 using EnglishWordSet = std::unordered_set<std::string>;
-std::shared_ptr<const EnglishWordSet> gCustomEnglishWords =
-    std::make_shared<const EnglishWordSet>();
+
+std::shared_ptr<const EnglishWordSet> gCustomEnglishWords = []() {
+  auto customWords = std::make_shared<EnglishWordSet>();
+  std::stringstream ss(getDefaultEnglishWords());
+  std::string word;
+  while (ss >> word) {
+    if (word.empty()) continue;
+    std::string normalized = lowerAscii(word);
+    if (!normalized.empty()) {
+      customWords->insert(normalized);
+    }
+  }
+  return customWords;
+}();
 
 } // namespace
 
@@ -67,7 +85,4 @@ void setCustomEnglishWords(const std::string& content) {
       std::static_pointer_cast<const EnglishWordSet>(customWords));
 }
 
-const std::string& getDefaultEnglishWords() {
-  static const std::string words = "";
-  return words;
-}
+

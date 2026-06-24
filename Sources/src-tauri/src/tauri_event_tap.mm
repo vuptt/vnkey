@@ -53,6 +53,7 @@ static CFMachPortRef      eventTap = NULL;
 static CGEventMask        eventMask = 0;
 static CFRunLoopSourceRef runLoopSource = NULL;
 static bool               _isInited = false;
+static id                 activeAppObserver = nil;
 
 extern "C" {
     extern int vSendKeyStepByStep;
@@ -178,7 +179,7 @@ extern "C" {
     }
 
     void refreshFrontMostAppIfNeeded() {
-        queryFrontMostApp();
+        // App query is handled asynchronously by workspace notifications
     }
 
     void refreshCurrentInputSource() {
@@ -921,12 +922,33 @@ extern "C" {
             NULL,
             CFNotificationSuspensionBehaviorDeliverImmediately
         );
+        activeAppObserver = [[[NSWorkspace sharedWorkspace] notificationCenter] addObserverForName:NSWorkspaceDidActivateApplicationNotification
+                                                                        object:nil
+                                                                         queue:[NSOperationQueue mainQueue]
+                                                                    usingBlock:^(NSNotification * _Nonnull note) {
+            NSRunningApplication *app = note.userInfo[NSWorkspaceApplicationKey];
+            if (app) {
+                NSString *bundleId = app.bundleIdentifier;
+                if (bundleId != nil) {
+                    _frontMostApp = bundleId;
+                } else if (app.localizedName != nil) {
+                    _frontMostApp = app.localizedName;
+                } else {
+                    _frontMostApp = @"UnknownApp";
+                }
+                OnActiveAppChanged();
+            }
+        }];
 
         return true;
     }
 
     void stop_event_tap() {
         if (_isInited) {
+            if (activeAppObserver) {
+                [[[NSWorkspace sharedWorkspace] notificationCenter] removeObserver:activeAppObserver];
+                activeAppObserver = nil;
+            }
             if (runLoopSource) {
                 CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
                 CFRelease(runLoopSource);
@@ -1065,6 +1087,7 @@ extern "C" {
 
             NSSize size = NSMakeSize(totalWidth, 18);
             NSImage* image = [NSImage imageWithSize:size flipped:NO drawingHandler:^BOOL(NSRect rect) {
+                (void)rect;
                 NSColor* color = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
                 if (isNotEnglish) {
                     color = [color colorWithAlphaComponent:0.4];
@@ -1107,12 +1130,7 @@ extern "C" {
 
                 // Draw the input type label to the right with font 13 Medium, vertically centered
                 if (vietnamese && [inputLabel length] > 0) {
-                    NSColor* typeColor = gray ? [NSColor blackColor] : [NSColor colorWithSRGBRed:0.0/255.0 green:102.0/255.0 blue:171.0/255.0 alpha:1.0];
-                    if (isNotEnglish) {
-                        typeColor = [typeColor colorWithAlphaComponent:0.4];
-                    } else if (gray) {
-                        typeColor = [typeColor colorWithAlphaComponent:0.7];
-                    }
+                    NSColor* typeColor = color;
 
                     NSDictionary* typeAttrs = @{
                         NSFontAttributeName: typeFont,
@@ -1504,6 +1522,32 @@ extern "C" {
 
     void macos_set_clipboard_enabled(bool enabled) {
         clipboardHistoryEnabled = enabled;
+    }
+
+    bool macos_is_another_instance_running() {
+        @autoreleasepool {
+            NSArray<NSRunningApplication*>* apps = [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.theodore.vnkey"];
+            pid_t ourPid = [[NSProcessInfo processInfo] processIdentifier];
+            for (NSRunningApplication* app in apps) {
+                if (app.processIdentifier != ourPid) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    void macos_activate_other_instance() {
+        @autoreleasepool {
+            NSArray<NSRunningApplication*>* apps = [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.theodore.vnkey"];
+            pid_t ourPid = [[NSProcessInfo processInfo] processIdentifier];
+            for (NSRunningApplication* app in apps) {
+                if (app.processIdentifier != ourPid) {
+                    [app activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+                    break;
+                }
+            }
+        }
     }
 
     void free_macos_status_icon(const uint8_t* bytes) {

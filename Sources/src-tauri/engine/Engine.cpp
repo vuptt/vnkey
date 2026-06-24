@@ -1290,13 +1290,15 @@ void handleQuickTelex(const Uint16& data, const bool& isCaps) {
     insertKey(_quickTelex[data][1], isCaps, false);
 }
 
-static bool restoreRawTyping(const int& handleCode) {
+static bool restoreRawTyping(const int& handleCode, bool excludeLast = true) {
     hCode = handleCode;
     hBPC = _index;
-    hNCC = _stateIndex;
+    hNCC = excludeLast ? (_stateIndex - 1) : _stateIndex;
     for (i = 0; i < _stateIndex; i++) {
         TypingWord[i] = KeyStates[i];
-        hData[_stateIndex - 1 - i] = TypingWord[i];
+    }
+    for (i = 0; i < hNCC; i++) {
+        hData[hNCC - 1 - i] = KeyStates[i];
     }
     _index = _stateIndex;
     return true;
@@ -1311,6 +1313,10 @@ bool applyFsmRestorations(const int& handleCode) {
             hasTransform = true;
             break;
         }
+    }
+    // Also consider it transformed if the number of raw keystrokes differs from output length
+    if (_rawTyping.size() != (size_t)_index) {
+        hasTransform = true;
     }
     if (!hasTransform) {
         return false;
@@ -1327,6 +1333,11 @@ bool applyFsmRestorations(const int& handleCode) {
         rawWord.push_back(static_cast<char>(character));
     }
 
+    // 2.5. Check if it is a protected English word first
+    if (vUseEnglishDictionary && isProtectedEnglishWord(rawWord)) {
+        return restoreRawTyping(handleCode, false);
+    }
+
     // 3. Apply FSM checks in user-configured priority order
     // FSM IDs: 0 = Vietnamese, 1 = English, 2 = Programming
     for (int _pri = 0; _pri < 3; ++_pri) {
@@ -1340,16 +1351,15 @@ bool applyFsmRestorations(const int& handleCode) {
             // If it is INVALID Vietnamese, we just continue checking lower priority FSMs.
         } else if (fsmId == 1) {
             // English FSM
-            if (vUseEnglishDictionary &&
-                (isProtectedEnglishWord(rawWord) || vnkey::isValidEnglishWord(rawWord))) {
+            if (vUseEnglishDictionary && vnkey::isValidEnglishWord(rawWord)) {
                 // Valid English word -> EN FSM wins! Restore raw typing.
-                return restoreRawTyping(handleCode);
+                return restoreRawTyping(handleCode, false);
             }
         } else if (fsmId == 2) {
             // Programming FSM
             if (vCheckProgrammingKeywords && vnkey::isValidProgrammingKeyword(rawWord)) {
                 // Valid Programming keyword -> PROG FSM wins! Restore raw typing.
-                return restoreRawTyping(handleCode);
+                return restoreRawTyping(handleCode, false);
             }
         }
     }
@@ -1360,7 +1370,7 @@ bool applyFsmRestorations(const int& handleCode) {
     // - Vietnamese was evaluated but it was INVALID (tempDisableKey = true).
     // Since Vietnamese is invalid and "Restore if wrong spelling" is active,
     // the default behavior is to restore.
-    return restoreRawTyping(handleCode);
+    return restoreRawTyping(handleCode, false);
 }
 
 void vTempOffSpellChecking() {
@@ -1667,7 +1677,6 @@ void vKeyHandleEvent(const vKeyEvent& event,
         
         if (hCode == vRestore) {
             insertKey(data, _isCaps);
-            _stateIndex--;
         }
         
         //insert or replace key for macro feature
