@@ -90,6 +90,8 @@ fn default_settings() -> Settings {
         clipboard_auto_hide: 1,
         clipboard_max_items: 30,
         clipboard_hotkey: 0x56000C09,
+        check_programming_keywords: 1,
+        fsm_priority_order: vec![0, 1, 2],
     }
 }
 
@@ -105,6 +107,7 @@ pub struct Settings {
     pub quick_telex: i32,
     pub restore_if_wrong_spelling: i32,
     pub use_english_dictionary: i32,
+    pub check_programming_keywords: i32,
     pub fix_recommend_browser: i32,
     pub use_macro: i32,
     pub use_macro_in_english_mode: i32,
@@ -137,6 +140,12 @@ pub struct Settings {
     pub clipboard_auto_hide: i32,
     pub clipboard_max_items: i32,
     pub clipboard_hotkey: i32,
+    #[serde(default = "default_fsm_priority_order")]
+    pub fsm_priority_order: Vec<i32>,
+}
+
+fn default_fsm_priority_order() -> Vec<i32> {
+    vec![0, 1, 2]
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -155,6 +164,11 @@ pub struct ClipboardItem {
 #[derive(serde::Serialize)]
 struct EnglishDictionary {
     custom_words: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct ProgrammingKeywordDictionary {
+    custom_keywords: Vec<String>,
 }
 
 static CLIPBOARD_HISTORY: OnceLock<Mutex<Vec<ClipboardItem>>> = OnceLock::new();
@@ -376,6 +390,9 @@ fn get_settings() -> Settings {
             convert_hotkey = 0xFE0000FEu32 as i32; // EMPTY_HOTKEY
             engine::set_convert_tool_hotkey(convert_hotkey);
         }
+        let mut fsm_order = [0, 1, 2];
+        engine::get_fsm_priority_order(&mut fsm_order);
+
         Settings {
             language: engine::vLanguage,
             input_type: engine::vInputType,
@@ -387,6 +404,7 @@ fn get_settings() -> Settings {
             quick_telex: engine::vQuickTelex,
             restore_if_wrong_spelling: engine::vRestoreIfWrongSpelling,
             use_english_dictionary: engine::vUseEnglishDictionary,
+            check_programming_keywords: engine::vCheckProgrammingKeywords,
             fix_recommend_browser: engine::vFixRecommendBrowser,
             use_macro: engine::vUseMacro,
             use_macro_in_english_mode: engine::vUseMacroInEnglishMode,
@@ -440,6 +458,7 @@ fn get_settings() -> Settings {
             },
             clipboard_max_items: CLIPBOARD_MAX_ITEMS.load(std::sync::atomic::Ordering::Relaxed),
             clipboard_hotkey: CLIPBOARD_HOTKEY.load(std::sync::atomic::Ordering::Relaxed),
+            fsm_priority_order: fsm_order.to_vec(),
         }
     }
 }
@@ -476,6 +495,14 @@ fn load_settings_from_disk(handle: &tauri::AppHandle) {
                             engine::vQuickTelex = settings.quick_telex;
                             engine::vRestoreIfWrongSpelling = settings.restore_if_wrong_spelling;
                             engine::vUseEnglishDictionary = settings.use_english_dictionary;
+                            engine::vCheckProgrammingKeywords = settings.check_programming_keywords;
+                            let order = &settings.fsm_priority_order;
+                            let fsm_order: [i32; 3] = [
+                                order.get(0).copied().unwrap_or(0),
+                                order.get(1).copied().unwrap_or(1),
+                                order.get(2).copied().unwrap_or(2),
+                            ];
+                            engine::set_fsm_priority_order(&fsm_order);
                             engine::vFixRecommendBrowser = settings.fix_recommend_browser;
                             engine::vUseMacro = settings.use_macro;
                             engine::vUseMacroInEnglishMode = settings.use_macro_in_english_mode;
@@ -584,6 +611,14 @@ fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
         engine::vQuickTelex = settings.quick_telex;
         engine::vRestoreIfWrongSpelling = settings.restore_if_wrong_spelling;
         engine::vUseEnglishDictionary = settings.use_english_dictionary;
+        engine::vCheckProgrammingKeywords = settings.check_programming_keywords;
+        let order = &settings.fsm_priority_order;
+        let fsm_order: [i32; 3] = [
+            order.get(0).copied().unwrap_or(0),
+            order.get(1).copied().unwrap_or(1),
+            order.get(2).copied().unwrap_or(2),
+        ];
+        engine::set_fsm_priority_order(&fsm_order);
         engine::vFixRecommendBrowser = settings.fix_recommend_browser;
         engine::vUseMacro = settings.use_macro;
         engine::vUseMacroInEnglishMode = settings.use_macro_in_english_mode;
@@ -725,8 +760,12 @@ fn reset_settings(handle: tauri::AppHandle) {
     db::db_reset_english_words();
     let words = db::db_get_english_words();
     engine::set_custom_english_words(&words.join("\n"));
+    db::db_reset_programming_keywords();
+    let prog_words = db::db_get_programming_keywords();
+    engine::set_custom_programming_keywords(&prog_words.join("\n"));
     let _ = handle.emit("settings-changed", settings.clone());
     let _ = handle.emit("english-dict-reset", true);
+    let _ = handle.emit("programming-keywords-reset", true);
     update_tray_icon(&handle);
 }
 
@@ -819,6 +858,42 @@ fn save_custom_english_words(words: String) -> Result<(), String> {
     db::db_clear_english_words();
     db::db_insert_english_words(&normalized);
     engine::set_custom_english_words(&normalized.join("\n"));
+    auto_sync_to_cloud();
+    Ok(())
+}
+
+fn load_programming_keywords_from_disk(_handle: &tauri::AppHandle) {
+    let keywords = db::db_get_programming_keywords();
+    engine::set_custom_programming_keywords(&keywords.join("\n"));
+}
+
+#[tauri::command]
+fn get_programming_keywords() -> Result<ProgrammingKeywordDictionary, String> {
+    let custom_keywords = db::db_get_programming_keywords();
+    Ok(ProgrammingKeywordDictionary { custom_keywords })
+}
+
+fn parse_programming_keywords(content: &str) -> Vec<String> {
+    let mut keywords: Vec<String> = content
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('#'))
+        .flat_map(str::split_whitespace)
+        .filter_map(|word| {
+            let w = word.trim().to_string();
+            if w.is_empty() { None } else { Some(w) }
+        })
+        .collect();
+    keywords.sort_unstable();
+    keywords.dedup();
+    keywords
+}
+
+#[tauri::command]
+fn save_custom_programming_keywords(keywords: String) -> Result<(), String> {
+    let normalized = parse_programming_keywords(&keywords);
+    db::db_clear_programming_keywords();
+    db::db_insert_programming_keywords(&normalized);
+    engine::set_custom_programming_keywords(&normalized.join("\n"));
     auto_sync_to_cloud();
     Ok(())
 }
@@ -1806,7 +1881,9 @@ pub fn run() {
             start_google_auth,
             poll_google_auth,
             sync_to_gdrive,
-            sync_from_gdrive
+            sync_from_gdrive,
+            get_programming_keywords,
+            save_custom_programming_keywords
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -1867,6 +1944,7 @@ pub fn run() {
                 load_settings_from_disk(&handle);
                 load_macros_from_disk(&handle);
                 load_english_dict_from_disk(&handle);
+                load_programming_keywords_from_disk(&handle);
                 unsafe {
                     engine::start_event_tap();
                 }
@@ -1891,6 +1969,7 @@ pub fn run() {
                                 load_settings_from_disk(&handle_clone_2);
                                 load_macros_from_disk(&handle_clone_2);
                                 load_english_dict_from_disk(&handle_clone_2);
+                                load_programming_keywords_from_disk(&handle_clone_2);
                                 unsafe {
                                     engine::start_event_tap();
                                 }

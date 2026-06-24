@@ -195,6 +195,15 @@ extern int vOtherLanguage;
  */
 extern int vTempOffVNKey;
 
+extern int vCheckProgrammingKeywords;
+
+/**
+ * FSM priority order: array of 3 values, each 0=VI, 1=EN, 2=PROG.
+ * Controls the order in which FSMs are consulted in checkRestoreIfWrongSpelling.
+ * Default: {0, 1, 2} (Vietnamese first, then English, then Programming).
+ */
+extern int vFsmPriorityOrder[3];
+
 /**
  * Call this function first to receive data pointer
  */
@@ -243,6 +252,9 @@ void vSetCheckSpelling();
  * temporarily turn off VNKey engine
  */
 void vTempOffEngine(const bool& off=true);
+
+// Set user-defined programming keywords list
+void vnkey_set_custom_programming_keywords(const char* content);
 
 #ifdef __cplusplus
 }

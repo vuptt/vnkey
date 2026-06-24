@@ -35,6 +35,7 @@ extern "C" {
     pub static mut vSendKeyStepByStep: c_int;
     pub static mut vFixChromiumBrowser: c_int;
     pub static mut vPerformLayoutCompat: c_int;
+    pub static mut vCheckProgrammingKeywords: c_int;
 
     pub fn vKeyInit() -> *mut c_void;
     pub fn startNewSession();
@@ -52,6 +53,9 @@ extern "C" {
 
     fn vnkey_load_macros(path: *const c_char);
     fn vnkey_set_custom_english_words(content: *const c_char);
+    fn vnkey_set_custom_programming_keywords(content: *const c_char);
+    fn vnkey_set_fsm_priority_order(a: c_int, b: c_int, c: c_int);
+    fn vnkey_get_fsm_priority_order(a: *mut c_int, b: *mut c_int, c: *mut c_int);
     fn vnkey_convert_text(
         source: *const c_char,
         from_code: c_int,
@@ -218,6 +222,23 @@ pub fn set_custom_english_words(content: &str) {
     }
 }
 
+pub fn set_custom_programming_keywords(content: &str) {
+    if let Ok(c_content) = CString::new(content) {
+        unsafe { vnkey_set_custom_programming_keywords(c_content.as_ptr()) };
+    }
+}
+
+pub fn set_fsm_priority_order(order: &[i32; 3]) {
+    unsafe {
+        vnkey_set_fsm_priority_order(order[0], order[1], order[2]);
+    }
+}
+
+pub fn get_fsm_priority_order(order: &mut [i32; 3]) {
+    unsafe {
+        vnkey_get_fsm_priority_order(&mut order[0], &mut order[1], &mut order[2]);
+    }
+}
 
 
 #[cfg(target_os = "macos")]

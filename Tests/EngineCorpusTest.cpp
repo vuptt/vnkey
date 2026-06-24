@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "../Sources/src-tauri/engine/Engine.h"
+#include "../Sources/src-tauri/engine/EnglishFSM.h"
+#include "../Sources/src-tauri/engine/ProgrammingFSM.h"
 
 int vLanguage = 1;
 int vInputType = 0;
@@ -35,6 +37,8 @@ int vQuickEndConsonant = 0;
 int vRememberCode = 0;
 int vOtherLanguage = 0;
 int vTempOffVNKey = 0;
+int vCheckProgrammingKeywords = 0;
+int vFsmPriorityOrder[3] = {0, 1, 2};
 
 namespace {
 
@@ -454,6 +458,135 @@ void runLatencyBenchmark(const std::vector<std::string> &corpus) {
 
 } // namespace
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FSM Unit Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+struct FSMCase {
+  const char *input;
+  bool expected;  // true = should be accepted by FSM
+};
+
+int runEnglishFSMTests() {
+  // Words that ARE valid English (FSM should return true)
+  static const FSMCase shouldAccept[] = {
+    // Common words
+    {"hello", true}, {"world", true}, {"the", true}, {"screen", true},
+    {"string", true}, {"write", true}, {"framework", true}, {"password", true},
+    {"network", true}, {"software", true}, {"download", true}, {"browser", true},
+    {"search", true}, {"login", true}, {"logout", true}, {"upload", true},
+    {"coffee", true}, {"free", true}, {"wrong", true}, {"workflow", true},
+    {"feedback", true}, {"dashboard", true}, {"deadline", true},
+    // Letter clusters & phonotactics
+    {"strength", true}, {"splash", true}, {"script", true}, {"spring", true},
+    {"straight", true}, {"through", true}, {"throat", true},
+    {"sphinx", true}, {"twist", true}, {"swift", true},
+    // Tech words
+    {"docker", true}, {"react", true}, {"python", true}, {"chrome", true},
+    {"github", true}, {"server", true}, {"client", true}, {"backend", true},
+    {"frontend", true}, {"database", true}, {"cluster", true},
+  };
+
+  // Sequences that are NOT valid English (FSM should return false)
+  // These are sequences that Telex might produce that are not English
+  static const FSMCase shouldReject[] = {
+    // Invalid onsets/codas
+    {"xkcd", false},    // multiple consecutive invalid consonants
+    {"bgtf", false},    // random consonant cluster
+    {"mxyzptlk", false},// no vowel run
+    // Too many consecutive vowels
+    {"aeiou", false},
+    // Non-alpha chars inside
+    {"ab3cd", false},
+  };
+
+  int passed = 0, failed = 0;
+  for (const auto& c : shouldAccept) {
+    bool result = vnkey::isValidEnglishWord(c.input);
+    if (result == c.expected) {
+      ++passed;
+    } else {
+      ++failed;
+      std::cout << "  [FAIL] EnglishFSM accept  '" << c.input
+                << "' expected=true got=false\n";
+    }
+  }
+  for (const auto& c : shouldReject) {
+    bool result = vnkey::isValidEnglishWord(c.input);
+    if (result == c.expected) {
+      ++passed;
+    } else {
+      ++failed;
+      std::cout << "  [FAIL] EnglishFSM reject  '" << c.input
+                << "' expected=false got=true\n";
+    }
+  }
+  std::cout << "EnglishFSM  passed=" << passed << " failed=" << failed << "\n";
+  return failed;
+}
+
+int runProgrammingFSMTests() {
+  // Keywords and patterns that SHOULD be accepted
+  static const FSMCase shouldAccept[] = {
+    // Built-in keywords
+    {"if", true}, {"else", true}, {"return", true}, {"const", true},
+    {"function", true}, {"class", true}, {"interface", true}, {"struct", true},
+    {"void", true}, {"int", true}, {"bool", true}, {"string", true},
+    {"true", true}, {"false", true}, {"null", true}, {"undefined", true},
+    {"async", true}, {"await", true}, {"import", true}, {"export", true},
+    {"namespace", true}, {"package", true}, {"extends", true},
+    {"try", true}, {"catch", true}, {"finally", true}, {"throw", true},
+    // camelCase / PascalCase -> identifier clue
+    {"getApp", true}, {"useState", true}, {"MyClass", true},
+    {"buildSystem", true}, {"AppBuilder", true}, {"onKeyDown", true},
+    // SCREAMING_SNAKE or ALL_CAPS acronym
+    {"API", true}, {"URL", true}, {"JSON", true}, {"HTTP", true},
+    {"SQL", true}, {"CPU", true}, {"GPU", true}, {"UUID", true},
+    // snake_case
+    {"my_var", true}, {"get_value", true}, {"MAX_SIZE", true},
+    // letter-digit transition
+    {"utf8", true}, {"sha256", true}, {"base64", true}, {"h264", true},
+    // $ prefix (PHP-style)
+    {"$this", true}, {"$scope", true},
+    // Tech names (in built-in set)
+    {"docker", true}, {"react", true}, {"svelte", true},
+    {"mongodb", true}, {"redis", true}, {"nginx", true},
+  };
+
+  // Patterns that should NOT be accepted (plain lowercase words that could be Vietnamese)
+  static const FSMCase shouldReject[] = {
+    {"xin", false}, {"chao", false}, {"ban", false}, {"toi", false},
+    {"abc", false}, {"xyz", false},   // short ambiguous
+    {"hello", false},  // 'hello' is NOT in keyword set and no identifier clues
+    {"world", false},
+    {"test", false},   // no clues -> rejected by ProgrammingFSM
+  };
+
+  int passed = 0, failed = 0;
+  for (const auto& c : shouldAccept) {
+    bool result = vnkey::isValidProgrammingKeyword(c.input);
+    if (result == c.expected) {
+      ++passed;
+    } else {
+      ++failed;
+      std::cout << "  [FAIL] ProgrammingFSM accept  '" << c.input
+                << "' expected=true got=false\n";
+    }
+  }
+  for (const auto& c : shouldReject) {
+    bool result = vnkey::isValidProgrammingKeyword(c.input);
+    if (result == c.expected) {
+      ++passed;
+    } else {
+      ++failed;
+      std::cout << "  [FAIL] ProgrammingFSM reject  '" << c.input
+                << "' expected=false got=true\n";
+    }
+  }
+  std::cout << "ProgrammingFSM  passed=" << passed << " failed=" << failed << "\n";
+  return failed;
+}
+
 int main(int argc, char *argv[]) {
   if (argc > 1 && std::string(argv[1]) == "--interactive") {
     std::cout << "=== VNKey English Word Diagnostic Tool ===\n";
@@ -507,6 +640,16 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
+  // ── Run FSM unit tests first ────────────────────────────────────────────
+  if (argc > 1 && std::string(argv[1]) == "--fsm") {
+    std::cout << "=== FSM Unit Tests ===\n";
+    int failures = 0;
+    failures += runEnglishFSMTests();
+    failures += runProgrammingFSMTests();
+    std::cout << (failures == 0 ? "ALL FSM TESTS PASSED\n" : "SOME FSM TESTS FAILED\n");
+    return failures > 0 ? 1 : 0;
+  }
+
   const auto corpus = makeCorpus(10000);
   if (argc > 1 && std::string(argv[1]) == "--benchmark") {
     runLatencyBenchmark(corpus);
@@ -514,6 +657,12 @@ int main(int argc, char *argv[]) {
   }
   const auto started = std::chrono::steady_clock::now();
 
+  // ── FSM unit tests ────────────────────────────────────────────────────────
+  std::cout << "=== FSM Unit Tests ===\n";
+  const int fsmFailures = runEnglishFSMTests() + runProgrammingFSMTests();
+  std::cout << (fsmFailures == 0 ? "ALL FSM TESTS PASSED\n" : "SOME FSM TESTS FAILED\n") << "\n";
+
+  // ── Corpus accuracy tests ─────────────────────────────────────────────────
   const Result baseline = evaluate(corpus, false, Policy::EngineOnly);
   const Result restore = evaluate(corpus, true, Policy::EngineOnly);
   const Result structural = evaluate(corpus, true, Policy::Structural);
@@ -539,7 +688,12 @@ int main(int argc, char *argv[]) {
   std::cout << "lexicon_ambiguous_false_restores=" << lexiconAmbiguities
             << '\n';
 
-  if (corpus.size() != 10000 ||
+  // ── Latency benchmark ─────────────────────────────────────────────────────
+  std::cout << "\n=== Latency Benchmark ===\n";
+  runLatencyBenchmark(corpus);
+
+  if (fsmFailures > 0 ||
+      corpus.size() != 10000 ||
       restore.failedOccurrences > baseline.failedOccurrences ||
       structural.falseRestores > 0 || lexicon.falseRestores > 0 ||
       lexicon.failedOccurrences > structural.failedOccurrences ||

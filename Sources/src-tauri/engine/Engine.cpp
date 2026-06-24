@@ -7,6 +7,8 @@
 //
 #include <algorithm>
 #include "Engine.h"
+#include "EnglishFSM.h"
+#include "ProgrammingFSM.h"
 #include <string.h>
 #include <list>
 #include "Macro.h"
@@ -1300,57 +1302,54 @@ static bool restoreRawTyping(const int& handleCode) {
     return true;
 }
 
-static bool hasChangedEnglishTyping() {
-    if (_rawTyping.size() != _index) {
-        return true;
-    }
-    for (i = 0; i < _index; i++) {
-        if (TypingWord[i] != _rawTyping[i]) {
-            return true;
+bool checkRestoreIfWrongSpelling(const int& handleCode) {
+    // 1. Check if the word has any Telex transformations (tone marks or accents)
+    bool hasTransform = false;
+    for (ii = 0; ii < _index; ii++) {
+        if (!IS_CONSONANT(CHR(ii)) &&
+            (TypingWord[ii] & MARK_MASK || TypingWord[ii] & TONE_MASK || TypingWord[ii] & TONEW_MASK)) {
+            hasTransform = true;
+            break;
         }
     }
-    return false;
-}
-
-static bool checkRestoreEnglishWord(const int& handleCode) {
-    if (_rawTyping.empty() || _rawTyping.size() > MAX_BUFF ||
-        !hasChangedEnglishTyping()) {
+    if (!hasTransform) {
         return false;
     }
 
-    string rawWord;
-    rawWord.reserve(_rawTyping.size());
-    for (const Uint32 rawKey : _rawTyping) {
-        const Uint16 character = keyCodeToCharacter(rawKey);
+    // 2. Construct the raw English word string
+    std::string rawWord;
+    rawWord.reserve(_index);
+    for (ii = 0; ii < _index; ii++) {
+        Uint16 character = keyCodeToCharacter(_rawTyping[ii]);
         if (character == 0) {
             return false;
         }
         rawWord.push_back(static_cast<char>(character));
     }
 
-    if (!isProtectedEnglishWord(rawWord)) {
-        return false;
-    }
-
-    hCode = handleCode;
-    hBPC = _index;
-    hNCC = static_cast<Byte>(_rawTyping.size());
-    for (i = 0; i < (int)_rawTyping.size(); i++) {
-        TypingWord[i] = _rawTyping[i];
-        hData[_rawTyping.size() - 1 - i] = _rawTyping[i];
-    }
-    _index = hNCC;
-    _stateIndex = hNCC;
-    return true;
-}
-
-bool checkRestoreIfWrongSpelling(const int& handleCode) {
-    for (ii = 0; ii < _index; ii++) {
-        if (!IS_CONSONANT(CHR(ii)) &&
-            (TypingWord[ii] & MARK_MASK || TypingWord[ii] & TONE_MASK || TypingWord[ii] & TONEW_MASK)) {
-            return restoreRawTyping(handleCode);
+    // 3. Apply FSM checks in user-configured priority order
+    // FSM IDs: 0 = Vietnamese (tempDisableKey), 1 = English, 2 = Programming
+    for (int _pri = 0; _pri < 3; ++_pri) {
+        const int fsmId = vFsmPriorityOrder[_pri];
+        if (fsmId == 0) {
+            // Vietnamese FSM: invalid Vietnamese spelling detected -> restore
+            if (tempDisableKey) {
+                return restoreRawTyping(handleCode);
+            }
+        } else if (fsmId == 1) {
+            // English FSM: valid English word or protected dictionary
+            if (vUseEnglishDictionary &&
+                (isProtectedEnglishWord(rawWord) || vnkey::isValidEnglishWord(rawWord))) {
+                return restoreRawTyping(handleCode);
+            }
+        } else if (fsmId == 2) {
+            // Programming FSM: recognized keyword or identifier pattern
+            if (vCheckProgrammingKeywords && vnkey::isValidProgrammingKeyword(rawWord)) {
+                return restoreRawTyping(handleCode);
+            }
         }
     }
+
     return false;
 }
 
@@ -1465,16 +1464,15 @@ void vKeyHandleEvent(const vKeyEvent& event,
             hCode = vReplaceMaro;
             hBPC = (Byte)hMacroKey.size();
             _hasHandledMacro = true;
-        } else if (vRestoreIfWrongSpelling && vUseEnglishDictionary && wordBreak &&
-                   checkRestoreEnglishWord(vRestoreAndStartNewSession)) {
-            // Protected English word restored to its raw key sequence.
         } else if ((vQuickStartConsonant || vQuickEndConsonant) && !tempDisableKey && isMacroBreakCode(data)) {
             checkQuickConsonant();
-        } else if (vRestoreIfWrongSpelling && wordBreak) { //restore key if wrong spelling with break-key
-            if (!tempDisableKey && vCheckSpelling) {
+        } else if (vRestoreIfWrongSpelling && wordBreak) { //restore key check with break-key
+            if (vCheckSpelling) {
                 checkSpelling(true); //force check spelling
             }
-            if (tempDisableKey && !checkRestoreIfWrongSpelling(vRestoreAndStartNewSession)) {
+            if (checkRestoreIfWrongSpelling(vRestoreAndStartNewSession)) {
+                // Restored successfully!
+            } else if (tempDisableKey) {
                 hCode = vDoNothing;
             }
         }
@@ -1528,13 +1526,12 @@ void vKeyHandleEvent(const vKeyEvent& event,
             hBPC = (Byte)hMacroKey.size();
             _spaceCount++;
             _hasHandledMacro = true;
-        } else if (vRestoreIfWrongSpelling && vUseEnglishDictionary && !_hasHandledMacro &&
-                   checkRestoreEnglishWord(vRestore)) {
-            _spaceCount++;
         } else if ((vQuickStartConsonant || vQuickEndConsonant) && !tempDisableKey && checkQuickConsonant()) {
             _spaceCount++;
-        } else if (vRestoreIfWrongSpelling && tempDisableKey && !_hasHandledMacro) { //restore key if wrong spelling
-            if (!checkRestoreIfWrongSpelling(vRestore)) {
+        } else if (vRestoreIfWrongSpelling && !_hasHandledMacro) { //restore key check
+            if (checkRestoreIfWrongSpelling(vRestore)) {
+                // Restored successfully!
+            } else if (tempDisableKey) {
                 hCode = vDoNothing;
             }
             _spaceCount++;

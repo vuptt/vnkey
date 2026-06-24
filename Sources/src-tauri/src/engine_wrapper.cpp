@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include "../engine/EnglishDictionary.h"
+#include "../engine/ProgrammingFSM.h"
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -22,6 +23,7 @@ extern "C" {
     int vQuickTelex = 0;
     int vRestoreIfWrongSpelling = 0;
     int vUseEnglishDictionary = 1;
+    int vCheckProgrammingKeywords = 1;
     int vUseMacro = 1;
     int vUseMacroInEnglishMode = 0;
     int vAutoCapsMacro = 1;
@@ -35,6 +37,8 @@ extern "C" {
     int vOtherLanguage = 1;
     int vTempOffVNKey = 0;
     int vDisableHotkeys = 0;
+    // FSM priority order: 0=VI, 1=EN, 2=PROG. Default: VI → EN → PROG
+    int vFsmPriorityOrder[3] = {0, 1, 2};
 
     char* vnkey_copy_string(const std::string& value) {
         char* result = static_cast<char*>(malloc(value.size() + 1));
@@ -124,6 +128,25 @@ extern "C" {
         }
     }
 
+    void vnkey_set_custom_programming_keywords(const char* content) {
+        if (content == nullptr) {
+            vnkey::setCustomProgrammingKeywords("");
+        } else {
+            vnkey::setCustomProgrammingKeywords(content);
+        }
+    }
+
+    void vnkey_set_fsm_priority_order(int a, int b, int c) {
+        vFsmPriorityOrder[0] = a;
+        vFsmPriorityOrder[1] = b;
+        vFsmPriorityOrder[2] = c;
+    }
+
+    void vnkey_get_fsm_priority_order(int* a, int* b, int* c) {
+        *a = vFsmPriorityOrder[0];
+        *b = vFsmPriorityOrder[1];
+        *c = vFsmPriorityOrder[2];
+    }
 
     char* vnkey_convert_text(
         const char* source,

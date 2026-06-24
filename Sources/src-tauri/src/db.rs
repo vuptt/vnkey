@@ -14,26 +14,9 @@ lazy_static::lazy_static! {
     static ref DB_CONN: Mutex<Option<Connection>> = Mutex::new(None);
 }
 
-const INITIAL_ENGLISH_WORDS: &[&str] = &[
-    "alert", "are", "array", "async", "await", "base", "benchmark", "browser",
-    "buffer", "care", "case", "checkbox", "class", "coffee", "color", "dashboard",
-    "database", "destroy", "diff", "display", "docker", "download", "dropdown",
-    "error", "example", "expected", "export", "extension", "fare", "feature",
-    "feedback", "filter", "focus", "for", "fork", "form", "format", "framework",
-    "free", "google", "handler", "header", "helper", "her", "here", "history",
-    "host", "hover", "import", "index", "interface", "internet", "issue",
-    "javascript", "keyboard", "kubernetes", "library", "linux", "logger", "macos",
-    "meeting", "memory", "message", "more", "mouse", "network", "parameter",
-    "password", "port", "post", "process", "project", "promise", "proxy", "push",
-    "python", "query", "queue", "read", "regression", "release", "render",
-    "request", "response", "restart", "router", "rust", "screen", "search",
-    "server", "service", "share", "software", "sort", "source", "status",
-    "success", "support", "swift", "system", "target", "task", "terminal",
-    "text", "theme", "there", "these", "thread", "token", "tool", "true",
-    "typescript", "undefined", "url", "user", "variable", "version", "warning",
-    "was", "website", "websocket", "were", "where", "width", "wifi", "windows",
-    "word", "workflow", "write", "wrong"
-];
+const INITIAL_ENGLISH_WORDS: &[&str] = &[];
+
+const INITIAL_PROGRAMMING_KEYWORDS: &[&str] = &[];
 
 // Generate a local encryption key (obfuscation key) for local DB encryption
 // This ensures data is not "raw" on disk.
@@ -95,6 +78,13 @@ pub fn init_db(app_config_dir: &Path) -> SqlResult<()> {
     )?;
 
     conn.execute(
+        "CREATE TABLE IF NOT EXISTS programming_keywords (
+            word TEXT PRIMARY KEY
+        )",
+        [],
+    )?;
+
+    conn.execute(
         "CREATE TABLE IF NOT EXISTS macros (
             shortcut TEXT PRIMARY KEY,
             content TEXT NOT NULL
@@ -126,6 +116,13 @@ pub fn init_db(app_config_dir: &Path) -> SqlResult<()> {
         let words: Vec<String> = INITIAL_ENGLISH_WORDS.iter().map(|s| s.to_string()).collect();
         db_insert_english_words(&words);
         db_set_kv("english_dict_initialized", "1");
+    }
+
+    let prog_initialized = db_get_kv("programming_keywords_initialized").unwrap_or_else(|| "0".to_string());
+    if prog_initialized == "0" {
+        let words: Vec<String> = INITIAL_PROGRAMMING_KEYWORDS.iter().map(|s| s.to_string()).collect();
+        db_insert_programming_keywords(&words);
+        db_set_kv("programming_keywords_initialized", "1");
     }
 
     Ok(())
@@ -180,6 +177,57 @@ pub fn db_reset_english_words() {
     db_clear_english_words();
     let words: Vec<String> = INITIAL_ENGLISH_WORDS.iter().map(|s| s.to_string()).collect();
     db_insert_english_words(&words);
+}
+
+pub fn db_insert_programming_keywords(words: &[String]) {
+    let mut conn_guard = DB_CONN.lock().unwrap();
+    if let Some(conn) = conn_guard.as_mut() {
+        let key = get_local_db_key();
+        let tx = conn.transaction().unwrap();
+        {
+            let mut stmt = tx.prepare("INSERT OR IGNORE INTO programming_keywords (word) VALUES (?1)").unwrap();
+            for word in words {
+                let enc_word = encrypt_text(word, &key);
+                let _ = stmt.execute(params![enc_word]);
+            }
+        }
+        tx.commit().unwrap();
+    }
+}
+
+pub fn db_get_programming_keywords() -> Vec<String> {
+    let mut words = Vec::new();
+    let key = get_local_db_key();
+    if let Some(conn) = DB_CONN.lock().unwrap().as_ref() {
+        if let Ok(mut stmt) = conn.prepare("SELECT word FROM programming_keywords") {
+            let iter = stmt.query_map([], |row| {
+                let enc_word: String = row.get(0)?;
+                Ok(enc_word)
+            });
+            if let Ok(iter) = iter {
+                for w_res in iter {
+                    if let Ok(w) = w_res {
+                        words.push(decrypt_text(&w, &key));
+                    }
+                }
+            }
+        }
+    }
+    words.sort();
+    words.dedup();
+    words
+}
+
+pub fn db_clear_programming_keywords() {
+    if let Some(conn) = DB_CONN.lock().unwrap().as_ref() {
+        let _ = conn.execute("DELETE FROM programming_keywords", []);
+    }
+}
+
+pub fn db_reset_programming_keywords() {
+    db_clear_programming_keywords();
+    let words: Vec<String> = INITIAL_PROGRAMMING_KEYWORDS.iter().map(|s| s.to_string()).collect();
+    db_insert_programming_keywords(&words);
 }
 
 pub fn db_insert_macros(macros: &[(String, String)]) {

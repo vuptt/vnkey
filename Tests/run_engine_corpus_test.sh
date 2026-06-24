@@ -13,6 +13,8 @@ clang++ -std=c++14 $FLAGS \
   "$ROOT/Tests/EngineCorpusTest.cpp" \
   "$ROOT/Sources/src-tauri/engine/Engine.cpp" \
   "$ROOT/Sources/src-tauri/engine/EnglishDictionary.cpp" \
+  "$ROOT/Sources/src-tauri/engine/EnglishFSM.cpp" \
+  "$ROOT/Sources/src-tauri/engine/ProgrammingFSM.cpp" \
   "$ROOT/Sources/src-tauri/engine/Macro.cpp" \
   "$ROOT/Sources/src-tauri/engine/Vietnamese.cpp" \
   "$ROOT/Sources/src-tauri/engine/SmartSwitchKey.cpp" \
