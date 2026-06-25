@@ -150,13 +150,17 @@
 
                 <p
                     style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 1rem; text-align: left; line-height: 1.4;">
-                    👉 <strong>Cách kết nối:</strong> Mở ứng dụng <strong>VNKey</strong> > Đi tới phần <strong>Đồng bộ
-                        Cloud</strong> > Chọn <strong>Google Drive</strong> > Nhấp vào <strong>"Liên kết qua Web
-                        App"</strong> và dán chuỗi liên kết ở trên vào để kích hoạt đồng bộ.
+                    👉 <strong>Đồng bộ tự động:</strong> Nhấn nút <strong>"Kết nối tự động"</strong> ở dưới để ứng dụng
+                    VNKey tự động kết nối và nạp cấu hình Google Drive. Hoặc sao chép chuỗi mã hóa phía trên để cấu hình
+                    thủ công nếu cần.
                 </p>
 
-                <div style="margin-top: 2rem; display: flex; gap: 10px; justify-content: center;">
-                    <button class="btn btn-secondary" id="btn-logout">Đăng xuất Google</button>
+                <div
+                    style="margin-top: 2rem; display: flex; flex-direction: column; gap: 10px; justify-content: center;">
+                    <button class="btn btn-primary" id="btn-auto-connect"
+                        style="width: 100%; justify-content: center;">Kết nối tự động với VNKey</button>
+                    <button class="btn btn-secondary" id="btn-logout" style="width: 100%; justify-content: center;">Đăng
+                        xuất Google</button>
                 </div>
             </div>
 
@@ -187,6 +191,7 @@
         const btnLoginGoogle = document.getElementById('btn-login-google');
         const btnEditConfig = document.getElementById('btn-edit-config');
         const btnCopyToken = document.getElementById('btn-copy-token');
+        const btnAutoConnect = document.getElementById('btn-auto-connect');
         const btnLogout = document.getElementById('btn-logout');
 
         // Config variables
@@ -217,7 +222,7 @@
         }
 
         // Cấu hình mặc định (Nếu bạn tự host và muốn điền cứng cấu hình, hãy điền Client ID và Client Secret tại đây)
-        const DEFAULT_CLIENT_ID = '883776555072-2oj328f2ipidh77ajqfs6v8nqs8n7p7u.apps.googleusercontent.com';
+        const DEFAULT_CLIENT_ID = '883776555072-eu99gv3s97nnqsl4na0o9uqn6n27cv0k.apps.googleusercontent.com';
         const DEFAULT_CLIENT_SECRET = '';
 
         // Hide all states
@@ -411,6 +416,12 @@
             localStorage.removeItem('google_profile');
             localStorage.removeItem('google_conn_token');
             init();
+        });
+
+        // Automatically connect to the local VNKey TCP loopback server
+        btnAutoConnect.addEventListener('click', () => {
+            const token = tokenString.value;
+            window.location.href = 'http://127.0.0.1:12558/callback?data=' + encodeURIComponent(token);
         });
 
         btnEditConfig.addEventListener('click', () => {

@@ -292,11 +292,6 @@
   let cloudSyncError = $state(false);
   let syncMethod = $state("r2");
   let gdriveConnected = $state(false);
-  let gdriveAuthCode = $state("");
-  let gdriveAuthUrl = $state("");
-  let isPollingGdrive = $state(false);
-  let showWebLinkInput = $state(false);
-  let webLinkTokenInput = $state("");
 
   // Sync Options
   let syncSettings = $state(true);
@@ -1090,6 +1085,16 @@
       stopListeningAccessibility = unsub;
     });
 
+    let stopListeningWebAuth: (() => void) | undefined;
+
+    listen<void>("gdrive_web_auth_success", () => {
+      gdriveConnected = true;
+      cloudSyncMessage = "Đã kết nối Google Drive qua Web App!";
+      cloudSyncError = false;
+    }).then((unsub) => {
+      stopListeningWebAuth = unsub;
+    });
+
     listen<void>("english-dict-reset", () => {
       loadCustomEnglishWords();
     }).then((unsub) => {
@@ -1101,6 +1106,7 @@
       if (stopListeningAccessibility) stopListeningAccessibility();
       if (stopListeningShowTab) stopListeningShowTab();
       if (stopListeningEnglishDictReset) stopListeningEnglishDictReset();
+      if (stopListeningWebAuth) stopListeningWebAuth();
       if (pollingInterval) clearInterval(pollingInterval);
       mediaQuery.removeEventListener('change', updateTheme);
     };
@@ -1199,57 +1205,21 @@
     }
   }
 
-  async function startGdriveAuth() {
+  async function startGdriveWebAuth() {
     isCloudSyncing = true;
     cloudSyncError = false;
-    cloudSyncMessage = "Đang khởi tạo kết nối Google Drive...";
+    cloudSyncMessage = "Đang khởi tạo máy chủ xác thực cục bộ...";
     try {
-      let res: any = await invoke("start_google_auth");
-      gdriveAuthCode = res.user_code;
-      gdriveAuthUrl = res.verification_url;
-      isPollingGdrive = true;
-      cloudSyncMessage = "";
-      pollGdriveAuth(res.device_code, res.interval);
+      await invoke("start_local_auth_server");
+      cloudSyncMessage = "Đang mở trình duyệt để liên kết...";
+      const url = "https://hoquangthaiholy.github.io/vnkey/auth.html";
+      await invoke("plugin:opener|open_url", { url });
     } catch (e: any) {
       cloudSyncError = true;
-      cloudSyncMessage = "Lỗi khởi tạo: " + e;
+      cloudSyncMessage = "Lỗi khởi tạo Web Auth: " + e;
     } finally {
       isCloudSyncing = false;
     }
-  }
-
-  async function pollGdriveAuth(deviceCode: string, intervalSecs: number) {
-    if (!isPollingGdrive) return;
-    try {
-      let res: any = await invoke("poll_google_auth", { deviceCode });
-      await invoke("set_kv", { key: "gdriveAccessToken", value: res.access_token });
-      if (res.refresh_token) {
-        await invoke("set_kv", { key: "gdriveRefreshToken", value: res.refresh_token });
-      }
-      gdriveConnected = true;
-      isPollingGdrive = false;
-      cloudSyncMessage = "Kết nối Google Drive thành công!";
-      cloudSyncError = false;
-    } catch (e: any) {
-      if (e.includes("authorization_pending")) {
-        setTimeout(() => pollGdriveAuth(deviceCode, intervalSecs), intervalSecs * 1000);
-      } else {
-        isPollingGdrive = false;
-        cloudSyncError = true;
-        cloudSyncMessage = "Lỗi xác thực: " + e;
-      }
-    }
-  }
-
-  function openGdriveAuthUrl() {
-    invoke("plugin:opener|open_url", { url: gdriveAuthUrl });
-  }
-
-  function cancelGdriveAuth() {
-    isPollingGdrive = false;
-    gdriveAuthCode = "";
-    gdriveAuthUrl = "";
-    cloudSyncMessage = "";
   }
 
   async function disconnectGdrive() {
@@ -1262,46 +1232,7 @@
     cloudSyncError = false;
   }
 
-  async function connectViaWebToken() {
-    if (!webLinkTokenInput.trim()) {
-      alert("Vui lòng nhập chuỗi liên kết!");
-      return;
-    }
-    try {
-      let decodedStr = atob(webLinkTokenInput.trim());
-      let data = JSON.parse(decodedStr);
-      if (!data.access_token) {
-        throw new Error("Không tìm thấy access_token trong chuỗi liên kết");
-      }
-      
-      await invoke("set_kv", { key: "gdriveAccessToken", value: data.access_token });
-      if (data.refresh_token) {
-        await invoke("set_kv", { key: "gdriveRefreshToken", value: data.refresh_token });
-      } else {
-        await invoke("set_kv", { key: "gdriveRefreshToken", value: "" });
-      }
-      
-      if (data.client_id) {
-        await invoke("set_kv", { key: "googleClientId", value: data.client_id });
-      } else {
-        await invoke("set_kv", { key: "googleClientId", value: "" });
-      }
-      
-      if (data.client_secret) {
-        await invoke("set_kv", { key: "googleClientSecret", value: data.client_secret });
-      } else {
-        await invoke("set_kv", { key: "googleClientSecret", value: "" });
-      }
 
-      gdriveConnected = true;
-      showWebLinkInput = false;
-      webLinkTokenInput = "";
-      cloudSyncMessage = "Liên kết qua Web App thành công!";
-      cloudSyncError = false;
-    } catch (e: any) {
-      alert("Lỗi phân tích chuỗi liên kết: " + e.message);
-    }
-  }
 
   async function syncToGdrive() {
     isCloudSyncing = true;
@@ -2149,41 +2080,10 @@
                       {isCloudSyncing ? "Đang xử lý..." : "Tải về Máy"}
                     </button>
                   </div>
-                {:else if isPollingGdrive}
-                  <div style="background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; text-align: center;">
-                    <h3 style="margin-top:0">Xác thực Google Drive</h3>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 16px;">
-                      <span style="font-size: 15px;">Mã xác nhận:</span>
-                      <strong style="font-size: 24px; letter-spacing: 2px; color: var(--color-accent);">{gdriveAuthCode}</strong>
-                      <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; margin-left: 4px;" onclick={() => { navigator.clipboard.writeText(gdriveAuthCode); alert("Đã copy mã vào clipboard!"); }} title="Copy mã">Copy</button>
-                    </div>
-                    <button class="btn btn-primary" onclick={openGdriveAuthUrl}>Mở Trình duyệt để Nhập Mã</button>
-                    <p style="font-size: 13px; color: var(--text-secondary); margin-top: 10px;">Đang đợi bạn xác nhận trên trình duyệt...</p>
-                    <button class="btn btn-secondary" onclick={cancelGdriveAuth} style="margin-top: 10px;">Huỷ</button>
-                  </div>
                 {:else}
-                  <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;" onclick={startGdriveAuth} disabled={isCloudSyncing}>
+                  <button class="btn btn-primary" style="width: 100%;" onclick={startGdriveWebAuth} disabled={isCloudSyncing}>
                     Kết nối Google Drive
                   </button>
-                  
-                  {#if !showWebLinkInput}
-                    <div style="text-align: center; margin-top: 8px;">
-                      <a href="javascript:void(0)" onclick={() => showWebLinkInput = true} style="font-size: 13px; color: var(--accent-color); text-decoration: none;">
-                        Hoặc liên kết qua Web App...
-                      </a>
-                    </div>
-                  {:else}
-                    <div style="margin-top: 12px; border-top: 1px dashed var(--border-color); padding-top: 12px; text-align: left;">
-                      <label for="web-token-input" style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">
-                        Nhập chuỗi liên kết từ Web App:
-                      </label>
-                      <textarea id="web-token-input" bind:value={webLinkTokenInput} placeholder="Dán chuỗi token dạng base64 tại đây..." class="form-input" style="width: 100%; height: 75px; resize: none; font-family: monospace; font-size: 11px; margin-bottom: 8px; padding: 6px;"></textarea>
-                      <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-primary" style="padding: 6px 12px; font-size: 13px;" onclick={connectViaWebToken}>Liên kết</button>
-                        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" onclick={() => { showWebLinkInput = false; webLinkTokenInput = ""; }}>Huỷ</button>
-                      </div>
-                    </div>
-                  {/if}
                 {/if}
               </div>
             {:else}
