@@ -222,7 +222,7 @@
         }
 
         // Cấu hình mặc định (Nếu bạn tự host và muốn điền cứng cấu hình, hãy điền Client ID và Client Secret tại đây)
-        const DEFAULT_CLIENT_ID = '883776555072-eu99gv3s97nnqsl4na0o9uqn6n27cv0k.apps.googleusercontent.com';
+        const DEFAULT_CLIENT_ID = '883776555072-l6vc6eirhdmtk3klm20nhomu5nraden4.apps.googleusercontent.com';
         const DEFAULT_CLIENT_SECRET = '';
 
         // Hide all states
@@ -236,20 +236,20 @@
         // Load credentials from local storage (falls back to hardcoded defaults if defined)
         function getSavedConfig() {
             return {
-                clientId: DEFAULT_CLIENT_ID || localStorage.getItem('google_client_id') || '',
-                clientSecret: DEFAULT_CLIENT_SECRET || localStorage.getItem('google_client_secret') || ''
+                clientId: localStorage.getItem('google_client_id') || DEFAULT_CLIENT_ID || '',
+                clientSecret: localStorage.getItem('google_client_secret') || DEFAULT_CLIENT_SECRET || ''
             };
         }
 
-        // Initialize application flow
         async function init() {
             hideAllStates();
             errorAlert.style.display = 'none';
+            warningAlert.style.display = 'none';
 
             const config = getSavedConfig();
 
-            // Ẩn nút thay đổi cấu hình nếu đã định nghĩa sẵn thông tin Client ID mặc định
-            if (DEFAULT_CLIENT_ID) {
+            // Hiển thị nút thay đổi cấu hình nếu chưa có đủ Client ID và Client Secret mặc định
+            if (DEFAULT_CLIENT_ID && DEFAULT_CLIENT_SECRET) {
                 btnEditConfig.style.display = 'none';
             } else {
                 btnEditConfig.style.display = 'block';
@@ -262,11 +262,16 @@
                 // We have a callback
                 showLoading("Đang trao đổi mã xác thực lấy Token...");
                 await handleCallback(code);
-            } else if (config.clientId) {
-                // Config exists, show login screen
+            } else if (config.clientId && config.clientSecret) {
+                // Config exists and has secret, show login screen
                 stateLogin.style.display = 'block';
             } else {
-                // No config, show config screen
+                // No config or missing client secret, show config screen to input
+                if (config.clientId) {
+                    clientIdInput.value = config.clientId;
+                    clientSecretInput.value = config.clientSecret;
+                    showWarning("Cần cấu hình Google Client Secret cho loại thông tin xác thực Web Application.");
+                }
                 stateConfig.style.display = 'block';
             }
         }
@@ -450,6 +455,14 @@
         function showError(msg) {
             errorAlert.textContent = msg;
             errorAlert.style.display = 'block';
+            warningAlert.style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showWarning(msg) {
+            warningAlert.textContent = msg;
+            warningAlert.style.display = 'block';
+            errorAlert.style.display = 'none';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 

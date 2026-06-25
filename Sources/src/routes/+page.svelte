@@ -1212,7 +1212,7 @@
     try {
       await invoke("start_local_auth_server");
       cloudSyncMessage = "Đang mở trình duyệt để liên kết...";
-      const url = "https://hoquangthaiholy.github.io/vnkey/auth.html";
+      const url = "https://hoquangthaiholy.github.io/vnkey/auth.html?t=" + Date.now();
       await invoke("plugin:opener|open_url", { url });
     } catch (e: any) {
       cloudSyncError = true;
