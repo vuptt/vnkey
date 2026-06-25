@@ -1,9 +1,10 @@
 fn main() {
     // Read .env file if it exists and pass to rustc
-    let env_path = std::path::Path::new("../.env");
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+    let env_path = std::path::Path::new(&manifest_dir).join("../.env");
     if env_path.exists() {
-        println!("cargo:rerun-if-changed=../.env");
-        if let Ok(content) = std::fs::read_to_string(env_path) {
+        println!("cargo:rerun-if-changed={}", env_path.display());
+        if let Ok(content) = std::fs::read_to_string(&env_path) {
             for line in content.lines() {
                 let line = line.trim();
                 if line.is_empty() || line.starts_with('#') {
