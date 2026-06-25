@@ -1265,7 +1265,7 @@
         </button>
         <button class="nav-item" class:active={activeTab === 6} onclick={() => activeTab = 6}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-          Thiết lập ứng dụng cá nhân
+          Ứng dụng
         </button>
         <button class="nav-item" class:active={activeTab === 7} onclick={() => activeTab = 7}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
