@@ -65,7 +65,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "copyright": "Copyright © 2026 theodore",
+    "copyright": "Copyright © 2026 Hồ Quang Thái",
     "macOS": {
       "signingIdentity": "-"
     },

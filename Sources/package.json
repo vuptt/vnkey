@@ -2,7 +2,7 @@
   "name": "vnkey-control-panel",
   "version": "1.0.0",
   "description": "Cross-platform VNKey control panel",
-  "author": "theodore",
+  "author": "Hồ Quang Thái",
   "type": "module",
   "scripts": {
     "dev": "vite dev",

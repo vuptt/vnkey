@@ -2696,7 +2696,7 @@
               <img src="/favicon.png" alt="VNKey" class="app-icon" />
               <div>
                 <h3>VNKey</h3>
-                <p class="version">Phiên bản 2.0.0 (Tauri Native Build)</p>
+                <p class="version">Phiên bản 1.0.0 (Build 1)</p>
               </div>
             </div>
             <p class="desc">Bộ gõ tiếng Việt mã nguồn mở, gọn nhẹ, chạy nhanh và an toàn tuyệt đối cho người dùng trên nền tảng macOS, Windows và Linux.</p>
@@ -2704,7 +2704,7 @@
             <div class="links-grid">
               <a href="https://open-key.org" target="_blank" class="link-item">Trang chủ VNKey</a>
               <a href="https://github.com/hoquangthaiholy/vnkey" target="_blank" class="link-item">Nguồn mở (GitHub)</a>
-              <a href="mailto:ey.dev@gmail.com" class="link-item">Liên hệ tác giả</a>
+              <a href="mailto:vnkey.dev@gmail.com" class="link-item">Liên hệ tác giả</a>
             </div>
 
             <div class="info-footer pt-15 mt-10" style="border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">

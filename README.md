@@ -1,151 +1,122 @@
-
 # [VNKey](http://vn-key.org)
-### [Download bản mới nhất](https://github.com/tuyenvm/VNKey/releases)
-[![GitHub release](https://img.shields.io/github/v/release/tuyenvm/VNKey.svg)](https://github.com/tuyenvm/VNKey/releases/latest)
+### [Download bản mới nhất](https://github.com/hoquangthaiholy/vnkey/releases)
+[![GitHub release](https://img.shields.io/github/v/release/hoquangthaiholy/vnkey.svg)](https://github.com/hoquangthaiholy/vnkey/releases/latest)
 
-### Open source Vietnamese Input App for macOS - Bộ gõ tiếng Việt nguồn mở cho macOS.
-Bộ gõ tiếng Việt mới cho macOS, sử dụng kỹ thuật `Backspace`. Loại bỏ lỗi gạch chân khó chịu ở bộ gõ mặc định. Hoàn toàn miễn phí và là nguồn mở, luôn cập nhật và phát triển.
+### Bộ gõ tiếng Việt nguồn mở, gọn nhẹ và đa nền tảng (macOS, Windows, Linux)
+VNKey là ứng dụng gõ tiếng Việt hiện đại được phát triển trên nền tảng **Tauri 2**, **Rust** và **Svelte 5**. Trên macOS, VNKey sử dụng kỹ thuật gửi phím `Backspace` thông minh giúp loại bỏ hoàn toàn lỗi gạch chân khó chịu của bộ gõ mặc định, mang lại trải nghiệm gõ mượt mà và an toàn tuyệt đối.
 
-### Mã nguồn của ứng dụng được mở công khai, minh bạch dưới giấy phép GPL. Điều này nghĩa là bạn hoàn toàn có thể tải mã nguồn về tự build, cải tiến theo mục đích của bạn. Nếu bạn tái phân phối bản cải tiến của bạn, thì nó cũng phải là mã nguồn mở và thông báo bản gốc là VNKey.
+---
 
-### Lưu ý, khi sử dụng VNKey, bạn nên tắt hẳn bộ gõ khác vì 2 chương trình bộ gõ sẽ xung đột nhau, dẫn đến thao tác không chính xác.
+## Tính năng nổi bật:
+* **Hỗ trợ kiểu gõ phổ biến:** Hỗ trợ kiểu gõ Telex và VNI.
+* **Bảng mã phong phú:** Unicode dựng sẵn, Unicode tổ hợp, TCVN3 (ABC), VNI Windows, Vietnamese Locale CP 1258...
+* **Kiểm tra chính tả tiếng Việt:** Phát hiện lỗi gõ sai quy tắc âm tiết để tự khôi phục phím hoặc dừng gõ dấu sai.
+* **Từ điển tiếng Anh cá nhân:** Tự động nhận diện và bỏ qua kiểm tra chính tả tiếng Việt khi gõ từ tiếng Anh thông dụng, hỗ trợ danh sách từ tùy chỉnh.
+* **Tối ưu hóa lập trình:** Bỏ qua kiểm tra chính tả cho từ khóa cú pháp và các cấu trúc biến (`camelCase`, `snake_case`, `ALL_CAPS`).
+* **Thiết lập ưu tiên ngôn ngữ (FSM Priority):** Kéo thả để ưu tiên thứ tự xử lý phím giữa chế độ Tiếng Việt, Tiếng Anh và Lập trình.
+* **Gõ tắt thông minh (Macro):** Quản lý từ viết tắt dễ dàng, không giới hạn độ dài ký tự thay thế, hỗ trợ tự động viết hoa (Auto Caps) và gõ tắt trong chế độ tiếng Anh.
+* **Quản lý khay nhớ tạm (Clipboard Manager):** Lưu lịch sử sao chép (văn bản, hình ảnh, liên kết) và tìm kiếm/truy xuất nhanh bằng phím tắt, bảo mật an toàn cục bộ.
+* **Công cụ chuyển mã:** Chuyển đổi nhanh qua lại giữa các bảng mã cũ sang Unicode, loại bỏ dấu tiếng Việt hoặc đổi chữ hoa/thường trực tiếp qua Clipboard.
+* **Chuyển chế độ thông minh (Smart Switch):** Tự động ghi nhớ và chuyển đổi chế độ gõ Anh/Việt tương ứng khi thay đổi tiêu điểm cửa sổ ứng dụng.
+* **Nhớ bảng mã theo ứng dụng:** Tự động chuyển đổi bảng mã phù hợp cho từng phần mềm (như tự chuyển sang VNI/TCVN3 khi vào Photoshop, AutoCAD).
+* **Đồng bộ dữ liệu đám mây (Cloud Sync):** Đồng bộ cấu hình cài đặt, từ điển cá nhân, thư viện macro và clipboard giữa các thiết bị.
+* **Tích hợp hệ thống:** Chạy cùng hệ điều hành (Autostart), hiển thị trạng thái gõ trên Tray Icon (hỗ trợ Gray icon cho Dark mode).
+* **Khắc phục lỗi macOS:** Sử dụng kỹ thuật Backspace thông minh loại bỏ hoàn toàn lỗi gạch chân khó chịu trên macOS.
 
-![Giao diện](https://raw.githubusercontent.com/tuyenvm/tuyenvm.github.io/master/images/vnkey-main-control.png "Main UI")
-![Giao diện](https://raw.githubusercontent.com/tuyenvm/tuyenvm.github.io/master/images/vnkey-main-control-2.png "Main UI")
-![Giao diện](https://raw.githubusercontent.com/tuyenvm/tuyenvm.github.io/master/images/vnkey-main-control-3.png "Main UI")
-![Menu](https://raw.githubusercontent.com/tuyenvm/tuyenvm.github.io/master/images/vnkey-small-control.png "Menu bar")
-![Gõ tắt](https://raw.githubusercontent.com/tuyenvm/tuyenvm.github.io/master/images/vnkey-macro.png "Macro")
-![Chuyển mã](https://raw.githubusercontent.com/tuyenvm/tuyenvm.github.io/master/images/vnkey-convert-tool.png "ConvertTool")
+---
 
-## Hỗ trợ kiểu gõ
-- Telex
-- VNI
+## Cài đặt
 
+### Cài đặt thủ công
+Tải bản VNKey mới nhất từ [GitHub Releases](https://github.com/hoquangthaiholy/vnkey/releases/latest), mở file `.dmg` (trên macOS) hoặc file cài đặt phù hợp với hệ điều hành của bạn, tiến hành kéo thả/cài đặt vào hệ thống.
 
-## Bảng mã thông dụng:
-- Unicode (Unicode dựng sẵn).
-- TCVN3 (ABC).
-- VNI Windows.
-- Unicode Compound (Unicode tổ hợp).
-- Vietnamese Locale CP 1258.
-- ...
-
-## Tính năng:
-- **Modern orthography** (On/Off) - Đặt dấu oà, uý thay vì òa, úy.
-- **Quick Telex** (On/Off) - Gõ nhanh (cc=ch, gg=gi, kk=kh, nn=ng, qq=qu, pp=ph, tt=th).
-- **Grammar check** (On/Off) - Kiểm tra ngữ pháp.
-- **Spelling check** (On/Off) - Kiểm tra chính tả.
-- **Restore key if invalid word** (on/off) - Phục hồi phím với từ sai.
-- **Run on startup** (On/Off) - Chạy cùng macOS.
-- **Gray menu bar icon** (On/Off) - Biểu tượng xám trên thanh menu phù hợp với chế độ Dark mode.
-- **Switch input mode by shortcut key** - Đổi chế độ gõ bằng phím tắt tùy chọn.
-- **Autocorrect fixed** (On/Off) - Sửa lỗi autocorrect trên trình duyệt như Chrome, Safari, Firefox, Microsoft Excel.
-- **Underline issue fixed on macOS** (On/Off) - Sửa lỗi gạch chân trên macOS.
-- **Tạm tắt kiểm tra chính tả bằng phím Ctrl** (On/Off) (Bản 1.5 về sau).
-- **Tạm tắt VNKey bằng phím Cmd/Alt** (On/Off) (Bản 2.0.1 về sau).
-- **Cho phép dùng f z w j làm phụ âm đầu** (On/Off) (Bản 1.5 về sau).
-- **Gõ tắt phụ âm đầu: f->ph, j->gi, w->qu** (On/Off) (Bản 1.6 về sau).
-- **Gõ tắt phụ âm cuối: g->ng, h->nh, k->ch** (On/Off) (Bản 1.6 về sau).
-- **Hiện biểu tượng trên thanh Dock** (On/Off) (Bản 2.0.1 về sau). Bấm vào icon trên thanh Dock sẽ mở nhanh Bảng điều khiển.
-- **Macro** - Tính năng gõ tắt vô cùng tiện lợi. Gõ tắt của macOS chỉ hỗ trợ 20 ký tự, còn VNKey không giới hạn ký tự.
-- **Chuyển chế độ thông minh:** (On/Off) (Bản 1.2 về sau) - Bạn đang dùng chế độ gõ Tiếng Việt trên ứng dụng A, bạn chuyển qua ứng dụng B trước đó bạn dùng chế độ gõ Tiếng Anh, VNKey sẽ tự động chuyển qua chế độ gõ Tiếng Anh cho bạn, khi bạn quay lại ứng dụng A, VNKey tất nhiên sẽ chuyển lại chế độ gõ tiếng Việt, rất cơ động.
-- **Viết Hoa chữ cái đầu câu** (On/Off) (Bản 1.2 về sau) - Khi gõ văn bản dài, đôi khi bạn quên ghi hoa chữ cái đầu câu khi kết thúc một câu hoặc khi xuống hàng, tính năng này sẽ tự ghi hoa chữ cái đầu câu cho bạn, thật tuyệt vời.
-- **Chế độ “Gửi từng phím”:** (On/Off) (Bản 1.1 về sau) mặc định dùng kỹ thuật mới gửi dữ liệu 1 lần thay vì gửi nhiều lần cho chuỗi ký tự, nên nếu có ứng dụng nào không tương thích, hãy bật tính năng này lên, mặc định thì nên tắt vì kỹ thuật mới sẽ chạy nhanh hơn.
-- **Cập nhật tự động:** (Bản 1.3 về sau) tính năng hỗ trợ cập nhật phiên bản VNKey mới nhất mỗi khi mở VNKey hoặc tự check trong phần mục Giới thiệu.
-- **Công cụ chuyển mã:** (Bản 1.4 về sau) hỗ trợ chuyển mã qua lại văn bản, thích hợp cho việc chuyển đổi văn bản cũ viết bằng VNI, TCVN3 qua Unicode,... Hỗ trợ cấu hình phím tắt chuyển mã nhanh, bảng cấu hình tùy chọn chuyển mã.
-- **Tự ghi nhớ bảng mã theo ứng dụng:** (Bản 2.0.1 về sau) Phù hợp cho các bạn dùng Photoshop, CAD,... với các bảng mã VNI, TCVN3. VNKey tự ghi nhớ ứng dụng nào dùng bảng mã nào để lần sau sử dụng Photoshop, CAD,... VNKey có thể tự chuyển sang bảng mã đó.
-- ...
-
-
-[Changelog](https://github.com/tuyenvm/VNKey/blob/master/CHANGELOG.md)
-
-## Cài đặt:
-**Cài đặt thủ công:**  
-Tải bản VNKey mới nhất từ [đây](https://github.com/tuyenvm/VNKey/releases/latest), mở file `dmg` ra rồi kéo thả `VNKey.app` vào thư mục `Application`.
-
-**Cài bằng Homebrew:** (by nhymxu)  
-Nếu chưa cài Homebrew, mở terminal, nhập:
-```
-$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-```
-
-Kiểm tra phiên bản VNKey:
-```
-$ brew info --cask vnkey
-```
-Gõ lệnh sau để homebrew tự cài VNKey cho bạn:
-```
-$ brew install --cask vnkey
-```
-
-Để update phiên bản mới nhất của VNKey
-```
-$ brew upgrade --cask vnkey
-```
-
-## Note - Lưu ý:
-VNKey cần cấp quyền, vào *System Preferences -> Security & Privacy -> Accessibility*, kích hoạt `VNKey.app`. **Không tắt nó khi đang dùng VNKey**.
-![Guide](https://raw.githubusercontent.com/tuyenvm/tuyenvm.github.io/master/images/vnkey-guide.png "Accessibility").
-
-## Tự build VNKey trên macOS
-
-VNKey hiện dùng Tauri cho toàn bộ bảng điều khiển. Xcode project cũ trong
-`Sources/VNKey/macOS` đã được loại bỏ để dọn dẹp mã nguồn.
-
-### Yêu cầu
-
-- Xcode Command Line Tools;
-- Node.js và npm;
-- Rust stable và Cargo.
-
-### Build
-
-Từ thư mục gốc:
-
+### Cài đặt qua Homebrew (dành cho macOS)
+Nếu bạn sử dụng Homebrew, có thể cài đặt nhanh bằng lệnh:
 ```bash
-./scripts/build_macos.sh [action]
+brew install --cask vnkey
 ```
-
-Các tham số (actions) hỗ trợ:
-
-- **`build`** (hoặc không truyền tham số): Chỉ build ra bundle `.app` tại:
-  ```text
-  Sources/src-tauri/target/release/bundle/macos/VNKey.app
-  ```
-- **`clean`**: Dọn dẹp toàn bộ các thư mục build tạm thời của cargo và frontend (`node_modules`, `.svelte-kit`, `build`).
-- **`build-installer`** (hoặc alias cũ **`dmg`**): Build bundle `.app` và đóng gói thành tệp `.dmg` tại:
-  ```text
-  Sources/src-tauri/target/release/bundle/dmg/VNKey_1.0.0_aarch64.dmg
-  ```
-- **`install`**: Build bundle `.app`, đóng ứng dụng VNKey đang chạy (nếu có), thay thế ứng dụng cũ trong thư mục `/Applications/`, và mở ứng dụng mới.
-- **`uninstall`**: Đóng VNKey và xóa `/Applications/VNKey.app`.
-
-### Chạy thử
-
+Để cập nhật VNKey lên bản mới nhất:
 ```bash
-open -g Sources/src-tauri/target/release/bundle/macos/VNKey.app
+brew upgrade --cask vnkey
 ```
 
-VNKey cần quyền Accessibility để event tap trên macOS bắt và gửi phím. Bundle
-identifier được giữ là `com.theodore.vnkey` để tương thích với cấu hình quyền
-của ứng dụng cũ.
+### Lưu ý cấp quyền Accessibility (macOS)
+Để VNKey có thể bắt và gửi phím chính xác trên hệ thống macOS, bạn cần cấp quyền Accessibility (Trợ năng):
+1. Vào *System Settings (Cài đặt hệ thống) -> Privacy & Security (Quyền riêng tư & Bảo mật) -> Accessibility (Trợ năng)*.
+2. Bật kích hoạt cho `VNKey.app`.
 
-DMG phát hành nên được tạo trong pipeline có Developer ID, hardened runtime và
-notarization. Bundle local từ script và ứng dụng nằm trong DMG đều sử dụng chữ
-ký ad-hoc dành cho phát triển.
+---
 
-## Tác giả
-- theodore.
-- Mọi góp ý, gửi cho mình qua maivutuyen.91@gmail.com  
-- Fanpage: [https://www.facebook.com/VNKey](https://www.facebook.com/VNKey)
+## Hướng dẫn Chi tiết các Chức năng
 
-## Liên kết
-- [Dự án VNKey Tauri (Hỗ trợ macOS, Windows, Linux)](https://github.com/tuyenvm/VNKey/tree/master/Sources)
-## Một điều nhỏ nhoi
-Đừng quên ủng hộ tác giả bằng cách mua ly cafe cho tác giả tỉnh ngủ nhé:  
-[Buy me a coffee ^^](https://tuyenvm.github.io/donate.html)  
-[Redbull cũng được ^^](https://paypal.me/tuyenmai)  
-Hoặc trực tiếp qua ví momo:   
-![Donate by momo](https://tuyenvm.github.io/images/momo.png "Momo").   
+### 1. Kiểm tra chính tả & Quy tắc ngôn ngữ
 
-Cảm ơn các bạn rất nhiều.
+* **Kiểm tra chính tả tiếng Việt**: 
+  * *Chi tiết:* Bộ lọc kiểm tra xem từ đang gõ có tuân thủ đúng quy tắc ngữ âm tiếng Việt hay không. Nếu phát hiện từ sai (ví dụ ghép âm sai quy tắc), bộ gõ sẽ tự động dừng xử lý dấu hoặc khôi phục phím gốc để từ không bị biến dạng.
+  * *Sử dụng:* Luôn bật để duy trì tốc độ và độ chính xác khi gõ văn bản tiếng Việt.
+* **Từ điển tiếng Anh cá nhân**:
+  * *Chi tiết:* Bỏ qua cơ chế kiểm tra chính tả tiếng Việt đối với các từ tiếng Anh thông dụng (như `more`, `date`, `file`), tránh việc bộ gõ tự ý thêm dấu nhầm khi bạn đang viết nội dung song ngữ ở chế độ tiếng Việt. Bạn có thể tự thêm các từ tiếng Anh riêng của mình vào từ điển tùy chỉnh.
+* **Bỏ qua từ khóa lập trình**:
+  * *Chi tiết:* Nhận diện thông minh các từ khóa cú pháp phổ biến (`if`, `for`, `while`, `public`, `return`) hoặc cấu trúc viết tên biến của lập trình viên (`camelCase`, `snake_case`, `ALL_CAPS`). VNKey sẽ tự động bỏ qua kiểm tra chính tả tiếng Việt cho những từ này, giúp lập trình viên viết code mượt mà không cần đổi sang chế độ gõ tiếng Anh.
+* **Thiết lập ưu tiên ngôn ngữ (FSM Priority Order)**:
+  * *Chi tiết:* VNKey chạy song song ba bộ máy kiểm tra (Tiếng Việt, Tiếng Anh, Lập trình). Thiết lập này cho phép người dùng kéo thả để quyết định bộ máy nào được ưu tiên kiểm tra trước khi nhận phím đầu vào. Nếu bạn viết code nhiều, hãy kéo "Lập trình" lên đầu để có trải nghiệm tốt nhất.
+
+### 2. Gõ tắt (Macro)
+
+* **Cơ chế hoạt động**: Cho phép định nghĩa từ viết tắt để tự động thay thế bằng cụm từ hoặc đoạn văn bản dài nhanh chóng. VNKey hỗ trợ nhập đoạn văn bản thay thế dài nhiều dòng và không giới hạn số lượng ký tự.
+* **Gõ tắt trong chế độ tiếng Anh**: Hỗ trợ bật/tắt khả năng sử dụng các từ viết tắt ngay cả khi bạn đang gõ ở chế độ tiếng Anh.
+* **Tự động viết hoa (Auto Caps Macro)**: Tự động phân tích kiểu viết chữ hoa/thường của phím gõ tắt để chuyển đổi kết quả đầu ra tương ứng (ví dụ: gõ `vk` -> `vnkey`, gõ `Vk` -> `Vnkey`, gõ `VK` -> `VNKEY`).
+
+### 3. Công cụ chuyển mã (Convert Tool)
+
+* **Chi tiết**: Chuyển đổi định dạng bảng mã của một đoạn văn bản (như chuyển từ các bảng mã cũ VNI-Windows, TCVN3 sang Unicode hiện đại), loại bỏ dấu tiếng Việt hoặc đổi kiểu viết hoa/thường.
+* **Sử dụng**: Sao chép văn bản cần xử lý -> sử dụng phím tắt chuyển mã nhanh (cấu hình trong cài đặt) -> Nhấn Dán (Paste) để hiển thị nội dung mới đã chuyển đổi từ bộ nhớ tạm.
+
+### 4. Bảng ghi nhớ (Clipboard Manager)
+
+* **Lịch sử sao chép**: Tự động lưu lịch sử các nội dung đã sao chép (bao gồm văn bản, hình ảnh và liên kết) giúp bạn dễ dàng tìm kiếm và tái sử dụng lại các thông tin cũ. Dữ liệu được mã hóa và lưu trữ cục bộ hoàn toàn trên máy của bạn để đảm bảo an toàn bảo mật tuyệt đối.
+* **Sử dụng**: Bật tính năng trong cài đặt và cấu hình phím tắt mở nhanh (ví dụ: `Option + V` hoặc `Cmd + Shift + V`). Cửa sổ Clipboard sẽ hiển thị ngay bên cạnh con trỏ chuột để bạn tìm kiếm và chọn nhanh dòng nội dung cần dán.
+
+### 5. Thiết lập theo từng ứng dụng (Application Settings)
+
+* **Chuyển chế độ thông minh (Smart Switch)**: VNKey tự động ghi nhớ chế độ gõ (Anh hoặc Việt) trên từng cửa sổ ứng dụng đang chạy. Khi bạn chuyển đổi tiêu điểm làm việc (ví dụ từ trình soạn thảo mã nguồn sang cửa sổ chat), VNKey tự động thiết lập đúng chế độ gõ đã dùng trước đó cho ứng dụng đó.
+* **Tự ghi nhớ bảng mã theo ứng dụng**: Ghi nhớ bảng mã tương ứng cho từng phần mềm. Rất thích hợp cho những ai thiết kế đồ họa (Photoshop) hay vẽ kỹ thuật (AutoCAD) cần làm việc với các font chữ thuộc bảng mã cũ (VNI, TCVN3). Khi bạn mở các phần mềm này, VNKey tự chuyển sang bảng mã cũ và tự động chuyển về Unicode khi bạn quay lại các ứng dụng khác.
+
+### 6. Đồng bộ dữ liệu (Cloud Sync)
+
+* **Chi tiết**: Giúp người dùng đồng bộ hóa cấu hình cài đặt chung, từ điển tiếng Việt/Anh cá nhân, thư viện macro và bảng ghi nhớ Clipboard giữa các thiết bị khác nhau thông qua kết nối đám mây an toàn, giúp bạn duy trì trải nghiệm gõ phím đồng nhất.
+
+### 7. Hệ thống & Tương thích
+
+* **Chạy cùng hệ thống (Autostart)**: Tự động chạy ngầm VNKey ngay khi bạn khởi động hệ điều hành để sẵn sàng gõ tiếng Việt mà không cần mở thủ công.
+* **Hiển thị trên thanh menu hệ thống (Tray Icon)**: Giúp theo dõi nhanh chế độ gõ (V/E). Hỗ trợ tùy chọn biểu tượng màu xám (Gray icon) hài hòa với giao diện sáng/tối của hệ điều hành.
+* **Tương thích quyền Trợ năng (Accessibility)**: Để có thể lắng nghe và xử lý phím hệ thống thông qua Event Tap, VNKey bắt buộc cần quyền Trợ năng trên macOS. Ứng dụng cam kết hoàn toàn chạy cục bộ và không thu thập bất kỳ dữ liệu cá nhân hay ký tự gõ phím nào của người dùng.
+
+---
+
+## Hướng dẫn dành cho Nhà phát triển (Developer Guide)
+
+Hướng dẫn chuẩn bị môi trường lập trình, chạy ứng dụng ở chế độ phát triển (Development) và các lệnh đóng gói/build chi tiết cho macOS, Windows, Linux đã được chuyển sang tài liệu riêng. 
+
+👉 Xem chi tiết tại: **[Hướng dẫn dành cho Nhà phát triển (Sources/README.md)](Sources/README.md)**.
+
+---
+
+## Ủng hộ dự án (Donation)
+
+VNKey là dự án mã nguồn mở hoàn toàn miễn phí và phi lợi nhuận. Sự đồng hành và đóng góp từ cộng đồng là nguồn động viên to lớn để nhà phát triển tiếp tục cải tiến, duy trì và nâng cấp bộ gõ ngày một tốt hơn.
+
+Nếu bạn yêu thích VNKey và muốn gửi tặng một tách cà phê, bạn có thể ủng hộ qua các hình thức sau:
+
+* **Ví MoMo:** (Thêm link ảnh QR của bạn tại đây)
+* **Paypal:** (Thêm link Paypal của bạn tại đây)
+* **Buy Me A Coffee:** (Thêm link ủng hộ của bạn tại đây)
+
+Chân thành cảm ơn sự ủng hộ và tin dùng của các bạn!
+
+---
+
+## Tác giả & Đóng góp
+
+* **Tác giả:** **Hồ Quang Thái** cùng sự đóng góp của cộng đồng mã nguồn mở.
+* **Liên hệ & Hỗ trợ:** Mọi phản hồi, góp ý hoặc báo lỗi vui lòng tạo Issue trên GitHub hoặc gửi về email: [vnkey.dev@gmail.com](mailto:vnkey.dev@gmail.com).

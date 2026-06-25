@@ -1,30 +1,77 @@
-# VNKey Control Panel
+# Bảng điều khiển VNKey (Control Panel)
 
-The VNKey control panel is implemented with Tauri 2, Svelte 5, TypeScript,
-Rust, and the shared C++ VNKey engine.
+Bảng điều khiển VNKey được phát triển bằng Tauri 2, Svelte 5, TypeScript, Rust và engine gõ tiếng Việt C++ dùng chung.
 
-The webview owns all user-facing configuration screens:
+Phần giao diện Webview đảm nhận toàn bộ các màn hình cấu hình dành cho người dùng:
+- Lựa chọn kiểu gõ và các quy tắc chính tả tiếng Việt;
+- Quản lý từ viết tắt (macro);
+- Công cụ chuyển mã văn bản / trang mã;
+- Cấu hình tương thích cho từng ứng dụng;
+- Quản lý trạng thái menu hệ thống (tray icon).
 
-- input method and Vietnamese spelling rules;
-- macro management;
-- text/code-page conversion;
-- application compatibility settings;
-- tray menu state.
+Việc bắt và xử lý sự kiện bàn phím cho từng nền tảng cụ thể được thực hiện qua các adapter native riêng. Trên macOS sử dụng `tauri_event_tap.mm`; Windows và Linux có thể sử dụng các adapter tương ứng của họ mà không cần thay đổi phần bảng điều khiển hoặc API lệnh.
 
-Platform-specific keyboard capture remains behind native adapters. macOS uses
-`tauri_event_tap.mm`; Windows and Linux can provide their own adapter without
-changing the control panel or its command API.
+---
 
-## Development
+## Hướng dẫn dành cho Nhà phát triển (Developer Guide)
 
-```sh
-npm install
-npm run check
-npm run tauri dev
-```
+### 1. Yêu cầu môi trường
+Trước khi build ứng dụng, máy tính của bạn cần cài đặt:
+* **Node.js** (Phiên bản 18 trở lên) và **npm**.
+* **Rust stable** và công cụ quản lý package **Cargo**.
+* **macOS:** Xcode Command Line Tools (`xcode-select --install`).
+* **Windows:** Microsoft C++ Build Tools và WebView2 Runtime.
+* **Linux:** Các thư viện phát triển của WebKitGTK và System Tray (theo hướng dẫn cài đặt của Tauri 2).
 
-Create a release bundle with:
+### 2. Chạy ứng dụng trong môi trường Development (Chế độ Dev)
+Để chạy thử ứng dụng và debug giao diện theo thời gian thực:
+1. Đảm bảo bạn đang ở trong thư mục `Sources`:
+   ```bash
+   cd Sources
+   ```
+2. Cài đặt các package phụ thuộc:
+   ```bash
+   npm install
+   ```
+3. Kiểm tra mã nguồn (tùy chọn):
+   ```bash
+   npm run check
+   ```
+4. Khởi chạy dự án ở chế độ phát triển:
+   ```bash
+   npm run tauri dev
+   ```
 
-```sh
+### 3. Build ứng dụng phát hành (Release Build)
+Bạn có thể chạy trực tiếp lệnh build của tauri trong thư mục `Sources`:
+```bash
 npm run tauri build
 ```
+
+Hoặc sử dụng các script tiện ích ở thư mục `scripts/` (chạy từ thư mục gốc của dự án) để tự động hóa quá trình đóng gói và cài đặt:
+
+* **Tự động nhận diện hệ điều hành và build:**
+  ```bash
+  ./scripts/build_all.sh
+  ```
+
+* **Build riêng cho macOS:**
+  ```bash
+  ./scripts/build_macos.sh [action]
+  ```
+  Các tham số `[action]` hỗ trợ:
+  * `build` (mặc định): Build ra file bundle ứng dụng `VNKey.app` tại `Sources/src-tauri/target/release/bundle/macos/`.
+  * `build-installer` (hoặc `dmg`): Đóng gói ứng dụng thành file `.dmg`.
+  * `install`: Build ứng dụng, ghi đè ứng dụng cũ trong `/Applications` và chạy bản mới nhất ngay lập tức.
+  * `clean`: Xóa các thư mục build tạm thời để giải phóng dung lượng.
+  * `uninstall`: Gỡ cài đặt VNKey khỏi hệ thống.
+
+* **Build riêng cho Windows (gọi từ Command Prompt / PowerShell):**
+  ```cmd
+  scripts\build_windows.bat
+  ```
+
+* **Build riêng cho Linux:**
+  ```bash
+  ./scripts/build_linux.sh
+  ```
