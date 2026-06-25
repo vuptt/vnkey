@@ -1664,8 +1664,8 @@ void vKeyHandleEvent(const vKeyEvent& event,
         hBPC = 0;
         hNCC = 0;
         hExt = 1; //word break
-        if (!tempDisableKey && vCheckSpelling) {
-            checkSpelling(true); //force check spelling
+        if (vCheckSpelling) {
+            checkSpelling(true); //force check spelling (always, so stale tempDisableKey from mid-word is refreshed)
         }
         if (vUseMacro && !_hasHandledMacro && findMacro(hMacroKey, hMacroData)) { //macro
             hCode = vReplaceMaro;
@@ -1814,7 +1814,7 @@ void vKeyHandleEvent(const vKeyEvent& event,
             handleMainKey(data, _isCaps);
         }
 
-        if (!vFreeMark && !IS_KEY_D(data)) {
+        if (!IS_KEY_D(data)) {
             if (hCode == vDoNothing) {
                 checkGrammar(-1);
             } else {

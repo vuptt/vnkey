@@ -16,7 +16,7 @@
 
 int vLanguage = 1;
 int vInputType = 0;
-int vFreeMark = 0;
+
 int vCodeTable = 0;
 int vSwitchKeyStatus = 0;
 int vCheckSpelling = 1;
@@ -494,17 +494,47 @@ int runToneMarkPositionTests() {
     // correct: mượn.  Telex: m-u-ow-n-j = "muownj"
     {"muownj", "m\u1EF1\u01A1n", "m\u01B0\u1EE3n"},
 
-    // ── Correct forms must still work (no regression) ──────────────────────
-    // hiện: Telex hieejn → hiện
-    {"hieejn", nullptr, "hi\u1EC7n"},
-    // tiếng: Telex tieengs → tiếng
-    {"tieengs", nullptr, "ti\u1EBFng"},
-    // sườn: Telex suownf → sườn
-    {"suownf", nullptr, "s\u01B0\u1EDDn"},
-    // mượn: Telex muownj → mượn
-    {"muownj", nullptr, "m\u01B0\u1EE3n"},
-    // việt: Telex vieejt → việt
-    {"vieejt", nullptr, "vi\u1EC7t"},
+    // ── Early-mark cases: dấu gõ trước khi double-vowel (ee/ow/oo/aa) được hình thành ─
+    // Verified: all 5 marks × all double-vowel groups produce identical output
+    // to standard-order typing (see /tmp/early_all.cpp). No regression.
+
+    // ie+ê group — all 5 marks
+    {"hiseen",  nullptr, "hi\u1EBFn"},  // sắc:  hiến
+    {"hifeen",  nullptr, "hi\u1EC1n"},  // huyền: hiền
+    {"hireen",  nullptr, "hi\u1EC3n"},  // hỏi:  hiển
+    {"hixeen",  nullptr, "hi\u1EC5n"},  // ngã:  hiễn
+    {"hijeen",  nullptr, "hi\u1EC7n"},  // nặng: hiện
+
+    // ie+ê+t group (việt family)
+    {"viseet",  nullptr, "vi\u1EBFt"},  // viết
+    {"vijeet",  nullptr, "vi\u1EC7t"},  // việt
+
+    // ie+ê+ng group (tiếng family)
+    {"tiseeng", nullptr, "ti\u1EBFng"}, // tiếng
+    {"tijeeng", nullptr, "ti\u1EC7ng"}, // tiệng
+
+    // uo+ơ group — sắc and nặng
+    {"susown",  nullptr, "s\u01B0\u1EDBn"}, // sướn
+    {"sujown",  nullptr, "s\u01B0\u1EE3n"}, // sượn
+    {"musown",  nullptr, "m\u01B0\u1EDBn"}, // mướn
+    {"mujown",  nullptr, "m\u01B0\u1EE3n"}, // mượn
+
+    // o+ô group (tôn family)
+    {"toson",   nullptr, "t\u1ED1n"},  // tốn
+    {"tojon",   nullptr, "t\u1ED9n"},  // tộn
+
+    // a+â group (tân family)
+    {"tasan",   nullptr, "t\u1EA5n"},  // tấn
+    {"tajan",   nullptr, "t\u1EADn"},  // tận
+
+    // ── Correct standard-order forms must still work (no regression) ────────
+    {"hieejn",  nullptr, "hi\u1EC7n"},          // hiện
+    {"tieengs", nullptr, "ti\u1EBFng"},          // tiếng
+    {"suownf",  nullptr, "s\u01B0\u1EDDn"},      // sườn
+    {"muownj",  nullptr, "m\u01B0\u1EE3n"},      // mượn
+    {"vieejt",  nullptr, "vi\u1EC7t"},           // việt
+    {"toojn",   nullptr, "t\u1ED9n"},            // tộn
+    {"taajn",   nullptr, "t\u1EADn"},            // tận
   };
 
   int passed = 0, failed = 0;

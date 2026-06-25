@@ -42,30 +42,52 @@
   </header>
 
   <main class="content" data-tauri-drag-region>
-    <div class="steps-timeline">
-      <div class="timeline-item">
-        <div class="timeline-badge">
-          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <div class="onboarding-card">
+      <div class="badge-wrapper">
+        <div class="accessibility-badge">
+          <!-- System-like accessibility icon: human figure in a circle -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="6.5" r="1.5" fill="currentColor" />
+            <path d="M6 11c2 0 4-1 6-1s4 1 6 1" />
+            <path d="M12 10v4" />
+            <path d="m9 18 3-4 3 4" />
+          </svg>
         </div>
-        <div class="timeline-content">
-          <span class="timeline-title">Cấp quyền Trợ năng</span>
-          <span class="timeline-desc">Nhấp nút <strong>Cấp quyền trợ năng</strong> để mở Cài đặt Hệ thống. Tìm <strong>VNKey</strong> và bật công tắc.</span>
-        </div>
+      </div>
+      
+      <div class="instructions">
+        <h2>Cấp quyền Trợ năng (Accessibility)</h2>
+        <ol class="steps-list">
+          <li>
+            <span class="step-num">1</span>
+            <span class="step-text">Nhấp nút <strong>Cấp quyền trợ năng</strong> bên dưới để mở Cài đặt Hệ thống.</span>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <span class="step-text">Tìm <strong>VNKey</strong> và bật công tắc cho phép.</span>
+          </li>
+        </ol>
       </div>
     </div>
     
-    <p class="note">
-      VNKey cần quyền Trợ năng để nhận diện và gõ tiếng Việt.
-    </p>
-    <p class="note" style="margin-top: 12px;">VNKey tuyệt đối không thu thập bất kỳ thông tin nào, mọi thứ hoạt động hoàn toàn offline trên máy của bạn.</p>
+    <div class="info-notes">
+      <p class="note">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="info-icon"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        VNKey cần quyền Trợ năng để nhận diện phím bấm và gõ tiếng Việt.
+      </p>
+      <p class="note secondary-note">
+        VNKey hoạt động hoàn toàn offline trên thiết bị của bạn. Cam kết tuyệt đối không thu thập bất kỳ dữ liệu nào.
+      </p>
+    </div>
   </main>
 
   <footer class="footer">
-    <button class="btn btn-primary" onclick={requestAccessibility}>
-      Cấp quyền trợ năng
-    </button>
     <button class="btn btn-secondary" onclick={quitApp}>
       Thoát
+    </button>
+    <button class="btn btn-primary" onclick={requestAccessibility}>
+      Cấp quyền trợ năng
     </button>
   </footer>
 </div>
@@ -73,19 +95,21 @@
 <style>
   :root {
     --bg-app: #121216;
-    --bg-card: #1f1f2a;
+    --bg-card: rgba(31, 31, 42, 0.45);
     --text-primary: #f5f5f7;
     --text-secondary: #a1a1b5;
     --color-accent: #007aff;
     --border-color: rgba(255, 255, 255, 0.08);
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
   }
 
   :global(.light) {
     --bg-app: #f4f4f6;
-    --bg-card: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.75);
     --text-primary: #1c1c1e;
     --text-secondary: #6c6c78;
     --border-color: rgba(0, 0, 0, 0.08);
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
   }
 
   :global(html), :global(body) {
@@ -103,7 +127,7 @@
     box-sizing: border-box;
     width: 100vw;
     height: 100vh;
-    padding: 24px;
+    padding: 24px 30px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -116,43 +140,33 @@
     align-items: center;
     text-align: center;
     margin-top: 4px;
-    margin-bottom: 12px;
-    gap: 8px;
+    margin-bottom: 8px;
+    gap: 6px;
   }
 
   .logo {
-    width: 80px;
-    height: 80px;
-    border-radius: 20px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 24px rgba(0, 122, 255, 0.3);
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 24px rgba(0, 122, 255, 0.25);
     object-fit: contain;
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-    animation: pulse-glow 3s infinite alternate;
-  }
-
-  @keyframes pulse-glow {
-    0% {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 20px rgba(0, 122, 255, 0.2);
-    }
-    100% {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 35px rgba(0, 122, 255, 0.6);
-    }
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
 
   .logo:hover {
-    transform: scale(1.1);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 40px rgba(0, 122, 255, 0.8);
+    transform: scale(1.08);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 35px rgba(0, 122, 255, 0.5);
   }
 
   h1 {
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
   }
 
   .subtitle {
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--text-secondary);
     margin: 0;
     opacity: 0.85;
@@ -163,85 +177,134 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin: 8px 0;
+    margin: 12px 0;
+    gap: 16px;
   }
 
-  .steps-timeline {
+  .onboarding-card {
+    background-color: var(--bg-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .badge-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .accessibility-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007aff, #0056b3);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.3);
+  }
+
+  .accessibility-badge svg {
+    width: 38px;
+    height: 38px;
+  }
+
+  .instructions {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 16px;
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    margin-bottom: 12px;
-    position: relative;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    gap: 8px;
   }
 
-  @media (prefers-color-scheme: light) {
-    .steps-timeline {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-    }
+  .instructions h2 {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
   }
 
-  .timeline-item {
+  .steps-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
     display: flex;
-    gap: 12px;
-    position: relative;
-    align-items: center;
+    flex-direction: column;
+    gap: 10px;
   }
 
-  .timeline-badge {
-    width: 44px;
-    height: 44px;
+  .steps-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .step-num {
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background-color: rgba(0, 122, 255, 0.1);
-    border: 1px solid rgba(0, 122, 255, 0.2);
-    color: var(--color-accent);
+    background-color: var(--border-color);
+    color: var(--text-primary);
+    font-size: 10.5px;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1;
     flex-shrink: 0;
+    margin-top: 1px;
   }
 
-  .timeline-content {
+  .step-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+  }
+
+  .step-text strong {
+    color: var(--text-primary);
+  }
+
+  .info-notes {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-  }
-
-  .timeline-title {
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .timeline-desc {
-    font-size: 11.5px;
-    color: var(--text-secondary);
-    line-height: 1.4;
-  }
-
-  .timeline-desc strong {
-    color: var(--text-primary);
+    gap: 6px;
+    padding: 0 8px;
   }
 
   .note {
     font-size: 11px;
     color: var(--text-secondary);
     margin: 0;
-    padding: 0 4px;
     text-align: center;
     line-height: 1.4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .info-icon {
+    color: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .secondary-note {
+    opacity: 0.65;
+    font-size: 10.5px;
   }
 
   .footer {
     display: flex;
     gap: 12px;
-    margin-top: 8px;
+    margin-top: 4px;
   }
 
   .btn {

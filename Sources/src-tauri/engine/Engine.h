@@ -57,7 +57,7 @@ extern int vInputType;
  * 0: No
  * 1: Yes
  */
-extern int vFreeMark;
+
 
 /*
  * 0: Unicode

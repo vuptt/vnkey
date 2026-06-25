@@ -16,7 +16,7 @@ extern "C" {
     int vSendKeyStepByStep = 0;
     int vLanguage = 1;
     int vInputType = 0;
-    int vFreeMark = 1;
+
     int vCodeTable = 0;
     int vSwitchKeyStatus = 0x20000C31; // DEFAULT_SWITCH_STATUS (Cmd + Shift + Space)
     int vCheckSpelling = 1;

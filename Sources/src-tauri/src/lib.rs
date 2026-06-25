@@ -52,7 +52,7 @@ fn default_settings() -> Settings {
     Settings {
         language: 1,
         input_type: 0,
-        free_mark: 1,
+
         code_table: 0,
         switch_key_status: default_switch_key(),
         check_spelling: 1,
@@ -102,7 +102,7 @@ fn default_settings() -> Settings {
 pub struct Settings {
     pub language: i32,
     pub input_type: i32,
-    pub free_mark: i32,
+
     pub code_table: i32,
     pub switch_key_status: i32,
     pub check_spelling: i32,
@@ -451,7 +451,7 @@ fn get_settings() -> Settings {
         Settings {
             language: engine::vLanguage,
             input_type: engine::vInputType,
-            free_mark: engine::vFreeMark,
+
             code_table: engine::vCodeTable,
             switch_key_status: switch_key,
             check_spelling: engine::vCheckSpelling,
@@ -539,112 +539,119 @@ pub fn get_settings_path(handle: &tauri::AppHandle) -> Option<PathBuf> {
 
 fn load_settings_from_disk(handle: &tauri::AppHandle) {
     if let Some(path) = get_settings_path(handle) {
-        if path.exists() {
-            if let Ok(mut file) = File::open(path) {
-                let mut content = String::new();
-                if file.read_to_string(&mut content).is_ok() {
-                    if let Ok(settings) = serde_json::from_str::<Settings>(&content) {
-                        let mut switch_key = settings.switch_key_status;
-                        if switch_key == 0 {
-                            switch_key = default_switch_key();
-                        }
-                        unsafe {
-                            engine::vLanguage = settings.language;
-                            engine::vInputType = settings.input_type;
-                            engine::vFreeMark = 1;
-                            engine::vCodeTable = settings.code_table;
-                            engine::vSwitchKeyStatus = switch_key;
-                            engine::vCheckSpelling = settings.check_spelling;
-                            engine::vUseModernOrthography = settings.use_modern_orthography;
-                            engine::vQuickTelex = settings.quick_telex;
-                            engine::vUseEnglishDictionary = settings.use_english_dictionary;
-                            engine::vCheckProgrammingKeywords = settings.check_programming_keywords;
-                            engine::vTelexWAsU = settings.telex_w_as_u;
-                            engine::vTelexBracketAsO = settings.telex_bracket_as_o;
-                            let order = &settings.fsm_priority_order;
-                            let fsm_order: [i32; 3] = [
-                                order.get(0).copied().unwrap_or(0),
-                                order.get(1).copied().unwrap_or(2),
-                                order.get(2).copied().unwrap_or(1),
-                            ];
-                            engine::set_fsm_priority_order(&fsm_order);
-                            engine::vFixRecommendBrowser = settings.fix_recommend_browser;
-                            engine::vFixSpotlight = settings.fix_spotlight;
-                            engine::vUseMacro = settings.use_macro;
-                            engine::vUseMacroInEnglishMode = settings.use_macro_in_english_mode;
-                            engine::vAutoCapsMacro = settings.auto_caps_macro;
-                            engine::vUseSmartSwitchKey = settings.use_smart_switch_key;
-                            engine::vUpperCaseFirstChar = settings.upper_case_first_char;
-                            engine::vQuickStartConsonant = settings.quick_start_consonant;
-                            engine::vRememberCode = settings.remember_code;
-                            engine::vSendKeyStepByStep = settings.send_key_step_by_step;
-                            engine::vFixChromiumBrowser = settings.fix_chromium_browser;
-                            engine::vPerformLayoutCompat = settings.perform_layout_compat;
-                            engine::set_convert_tool_dont_alert(settings.convert_tool_dont_alert);
-                            engine::set_convert_tool_to_all_caps(settings.convert_tool_to_all_caps);
-                            engine::set_convert_tool_to_all_non_caps(
-                                settings.convert_tool_to_all_non_caps,
-                            );
-                            engine::set_convert_tool_to_caps_first_letter(
-                                settings.convert_tool_to_caps_first_letter,
-                            );
-                            engine::set_convert_tool_to_caps_each_word(
-                                settings.convert_tool_to_caps_each_word,
-                            );
-                            engine::set_convert_tool_remove_mark(settings.convert_tool_remove_mark);
-                            engine::set_convert_tool_from_code(settings.convert_tool_from_code);
-                            engine::set_convert_tool_to_code(settings.convert_tool_to_code);
-                            engine::set_convert_tool_hotkey(settings.convert_tool_hotkey);
-                        }
-                        GRAY_ICON.store(
-                            settings.gray_icon == 1,
+        if !path.exists() {
+            // If settings.json doesn't exist, save the default settings so that they can be loaded properly.
+            let default_settings = default_settings();
+            save_settings_to_disk(handle, &default_settings);
+        }
+        if let Ok(mut file) = File::open(path) {
+            let mut content = String::new();
+            if file.read_to_string(&mut content).is_ok() {
+                if let Ok(settings) = serde_json::from_str::<Settings>(&content) {
+                    let mut switch_key = settings.switch_key_status;
+                    if switch_key == 0 {
+                        switch_key = default_switch_key();
+                    }
+                    unsafe {
+                        engine::vLanguage = settings.language;
+                        engine::vInputType = settings.input_type;
+
+                        engine::vCodeTable = settings.code_table;
+                        engine::vSwitchKeyStatus = switch_key;
+                        engine::vCheckSpelling = settings.check_spelling;
+                        engine::vUseModernOrthography = settings.use_modern_orthography;
+                        engine::vQuickTelex = settings.quick_telex;
+                        engine::vUseEnglishDictionary = settings.use_english_dictionary;
+                        engine::vCheckProgrammingKeywords = settings.check_programming_keywords;
+                        engine::vTelexWAsU = settings.telex_w_as_u;
+                        engine::vTelexBracketAsO = settings.telex_bracket_as_o;
+                        let order = &settings.fsm_priority_order;
+                        let fsm_order: [i32; 3] = [
+                            order.get(0).copied().unwrap_or(0),
+                            order.get(1).copied().unwrap_or(2),
+                            order.get(2).copied().unwrap_or(1),
+                        ];
+                        engine::set_fsm_priority_order(&fsm_order);
+                        engine::vFixRecommendBrowser = settings.fix_recommend_browser;
+                        engine::vFixSpotlight = settings.fix_spotlight;
+                        engine::vUseMacro = settings.use_macro;
+                        engine::vUseMacroInEnglishMode = settings.use_macro_in_english_mode;
+                        engine::vAutoCapsMacro = settings.auto_caps_macro;
+                        engine::vUseSmartSwitchKey = settings.use_smart_switch_key;
+                        engine::vUpperCaseFirstChar = settings.upper_case_first_char;
+                        engine::vQuickStartConsonant = settings.quick_start_consonant;
+                        engine::vRememberCode = settings.remember_code;
+                        engine::vSendKeyStepByStep = settings.send_key_step_by_step;
+                        engine::vFixChromiumBrowser = settings.fix_chromium_browser;
+                        engine::vPerformLayoutCompat = settings.perform_layout_compat;
+                        engine::set_convert_tool_dont_alert(settings.convert_tool_dont_alert);
+                        engine::set_convert_tool_to_all_caps(settings.convert_tool_to_all_caps);
+                        engine::set_convert_tool_to_all_non_caps(
+                            settings.convert_tool_to_all_non_caps,
+                        );
+                        engine::set_convert_tool_to_caps_first_letter(
+                            settings.convert_tool_to_caps_first_letter,
+                        );
+                        engine::set_convert_tool_to_caps_each_word(
+                            settings.convert_tool_to_caps_each_word,
+                        );
+                        engine::set_convert_tool_remove_mark(settings.convert_tool_remove_mark);
+                        engine::set_convert_tool_from_code(settings.convert_tool_from_code);
+                        engine::set_convert_tool_to_code(settings.convert_tool_to_code);
+                        engine::set_convert_tool_hotkey(settings.convert_tool_hotkey);
+                        engine::startNewSession();
+                    }
+                    GRAY_ICON.store(
+                        settings.gray_icon == 1,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    SHOW_INPUT_TYPE_ON_TRAY.store(
+                        settings.show_input_type_on_tray == 1,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    CLIPBOARD_ENABLED.store(
+                        settings.clipboard_enabled == 1,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    CLIPBOARD_PIN_ON_TOP.store(
+                        settings.clipboard_pin_on_top == 1,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    CLIPBOARD_AUTO_HIDE.store(
+                        settings.clipboard_auto_hide == 1,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    CLIPBOARD_MAX_ITEMS.store(
+                        settings.clipboard_max_items,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                    if let Some(window) = handle.get_webview_window("clipboard") {
+                        let _ = window.set_always_on_top(settings.clipboard_pin_on_top == 1);
+                    }
+                    if settings.clipboard_hotkey != 0 {
+                        CLIPBOARD_HOTKEY.store(
+                            settings.clipboard_hotkey,
                             std::sync::atomic::Ordering::Relaxed,
                         );
-                        CLIPBOARD_ENABLED.store(
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        engine::macos_set_clipboard_enabled_val(
                             settings.clipboard_enabled == 1,
-                            std::sync::atomic::Ordering::Relaxed,
-                        );
-                        CLIPBOARD_PIN_ON_TOP.store(
-                            settings.clipboard_pin_on_top == 1,
-                            std::sync::atomic::Ordering::Relaxed,
-                        );
-                        CLIPBOARD_AUTO_HIDE.store(
-                            settings.clipboard_auto_hide == 1,
-                            std::sync::atomic::Ordering::Relaxed,
-                        );
-                        CLIPBOARD_MAX_ITEMS.store(
-                            settings.clipboard_max_items,
-                            std::sync::atomic::Ordering::Relaxed,
                         );
                         if settings.clipboard_hotkey != 0 {
-                            CLIPBOARD_HOTKEY.store(
-                                settings.clipboard_hotkey,
-                                std::sync::atomic::Ordering::Relaxed,
-                            );
-                        }
-                        let autostart_val = settings.autostart == 1;
-                        AUTOSTART.store(autostart_val, std::sync::atomic::Ordering::Relaxed);
-                        update_autostart_config(autostart_val);
-                        OPEN_PANEL_ON_START.store(
-                            settings.open_panel_on_start == 1,
-                            std::sync::atomic::Ordering::Relaxed,
-                        );
-                        #[cfg(target_os = "macos")]
-                        {
-                            engine::macos_set_clipboard_enabled_val(
-                                settings.clipboard_enabled == 1,
-                            );
-                            if settings.clipboard_hotkey != 0 {
-                                engine::macos_set_clipboard_hotkey_val(settings.clipboard_hotkey);
-                            }
+                            engine::macos_set_clipboard_hotkey_val(settings.clipboard_hotkey);
                         }
                     }
+                    let autostart_val = settings.autostart == 1;
+                    AUTOSTART.store(autostart_val, std::sync::atomic::Ordering::Relaxed);
+                    update_autostart_config(autostart_val);
+                    OPEN_PANEL_ON_START.store(
+                        settings.open_panel_on_start == 1,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
                 }
             }
-        } else {
-            // If settings.json doesn't exist, save the default global settings so that they can be restored later when switching out of app profiles.
-            let default_settings = get_settings();
-            save_settings_to_disk(handle, &default_settings);
         }
     }
 }
@@ -661,7 +668,7 @@ fn save_settings_to_disk(handle: &tauri::AppHandle, settings: &Settings) {
 
 #[tauri::command]
 fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
-    settings.free_mark = 1;
+
     settings.allow_consonant_zfwj = 1;
     if settings.switch_key_status == 0 {
         settings.switch_key_status = default_switch_key();
@@ -673,7 +680,7 @@ fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
     unsafe {
         engine::vLanguage = settings.language;
         engine::vInputType = settings.input_type;
-        engine::vFreeMark = 1;
+
         engine::vCodeTable = settings.code_table;
         engine::vSwitchKeyStatus = settings.switch_key_status;
         engine::vCheckSpelling = settings.check_spelling;
@@ -777,7 +784,7 @@ fn reset_settings(handle: tauri::AppHandle) {
     unsafe {
         engine::vLanguage = settings.language;
         engine::vInputType = settings.input_type;
-        engine::vFreeMark = 1;
+
         engine::vCodeTable = settings.code_table;
         engine::vSwitchKeyStatus = settings.switch_key_status;
         engine::vCheckSpelling = settings.check_spelling;
@@ -1591,7 +1598,7 @@ fn hide_clipboard_picker_window(handle: tauri::AppHandle) {
 pub struct AppConfig {
     pub language: i32,
     pub input_type: i32,
-    pub free_mark: i32,
+
     pub code_table: i32,
     pub check_spelling: i32,
     pub use_modern_orthography: i32,
@@ -1606,6 +1613,8 @@ pub struct AppConfig {
     pub quick_end_consonant: i32,
     #[serde(default)]
     pub check_programming_keywords: i32,
+    #[serde(default = "default_fsm_priority_order")]
+    pub fsm_priority_order: Vec<i32>,
     pub name: Option<String>,
 }
 
@@ -1782,7 +1791,7 @@ fn apply_app_config_by_bundle_id(handle: &tauri::AppHandle, bundle_id: &str) {
         unsafe {
             engine::vLanguage = config.language;
             engine::vInputType = config.input_type;
-            engine::vFreeMark = 1;
+
             engine::vCodeTable = config.code_table;
             engine::vCheckSpelling = config.check_spelling;
             engine::vUseModernOrthography = config.use_modern_orthography;
@@ -1795,6 +1804,13 @@ fn apply_app_config_by_bundle_id(handle: &tauri::AppHandle, bundle_id: &str) {
             engine::vQuickStartConsonant = config.quick_start_consonant;
             engine::vQuickEndConsonant = config.quick_end_consonant;
             engine::vCheckProgrammingKeywords = config.check_programming_keywords;
+            let order = &config.fsm_priority_order;
+            let fsm_order: [i32; 3] = [
+                order.get(0).copied().unwrap_or(0),
+                order.get(1).copied().unwrap_or(2),
+                order.get(2).copied().unwrap_or(1),
+            ];
+            engine::set_fsm_priority_order(&fsm_order);
             engine::startNewSession();
             engine::code_table_changed();
         }

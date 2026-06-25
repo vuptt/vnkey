@@ -643,6 +643,7 @@
       allow_consonant_zfwj: settings.allow_consonant_zfwj,
       quick_start_consonant: settings.quick_start_consonant,
       quick_end_consonant: settings.quick_end_consonant,
+      fsm_priority_order: [...settings.fsm_priority_order],
       name: name,
     };
 
@@ -664,6 +665,61 @@
     } catch (e) {
       console.error("Failed to update app config field:", e);
     }
+  }
+
+  let appFsmDragIndex = $state<number | null>(null);
+  let appFsmDragOverIndex = $state<number | null>(null);
+  let appFsmIsDragging = $state(false);
+  let appFsmListEl = $state<HTMLElement | null>(null);
+
+  function appFsmOrderedItems() {
+    if (!selectedApp || !appConfigs[selectedApp]) return [];
+    const order: number[] = appConfigs[selectedApp].fsm_priority_order || [0, 2, 1];
+    return order
+      .map((id: number) => FSM_DEFS.find((d) => d.id === id))
+      .filter((d): d is Exclude<typeof d, undefined> => !!d);
+  }
+
+  function appFsmSlotAtY(clientY: number): number | null {
+    if (!appFsmListEl) return null;
+    const rect = appFsmListEl.getBoundingClientRect();
+    const order = appConfigs[selectedApp]?.fsm_priority_order || [0, 2, 1];
+    const itemCount = order.length;
+    if (itemCount === 0) return null;
+    const itemHeight = rect.height / itemCount;
+    const relativeY = clientY - rect.top;
+    const slot = Math.floor(relativeY / itemHeight);
+    return Math.max(0, Math.min(itemCount - 1, slot));
+  }
+
+  function onAppFsmContainerPointerDown(e: PointerEvent) {
+    const slot = appFsmSlotAtY(e.clientY);
+    if (slot === null) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    appFsmDragIndex = slot;
+    appFsmDragOverIndex = slot;
+    appFsmIsDragging = true;
+    e.preventDefault();
+  }
+
+  function onAppFsmContainerPointerMove(e: PointerEvent) {
+    if (!appFsmIsDragging || appFsmDragIndex === null) return;
+    const slot = appFsmSlotAtY(e.clientY);
+    if (slot !== null && slot !== appFsmDragIndex) {
+      const currentOrder = appConfigs[selectedApp]?.fsm_priority_order || [0, 2, 1];
+      const newOrder = [...currentOrder];
+      const [moved] = newOrder.splice(appFsmDragIndex, 1);
+      newOrder.splice(slot, 0, moved);
+      updateAppConfigField('fsm_priority_order', newOrder);
+      appFsmDragIndex = slot;
+      appFsmDragOverIndex = slot;
+    }
+  }
+
+  function onAppFsmContainerPointerUp(_e: PointerEvent) {
+    appFsmDragIndex = null;
+    appFsmDragOverIndex = null;
+    appFsmIsDragging = false;
   }
 
   async function deleteAppConfig(bundleId: string, name: string) {
@@ -2571,6 +2627,51 @@
                       </label>
                     </div>
                   </div>
+
+                  <!-- Section 5: Thứ tự ưu tiên -->
+                  <div class="app-section">
+                    <h4>Thứ tự ưu tiên</h4>
+                    <p class="dict-hint" style="margin-bottom: 8px; font-size: 11px;">Kéo thả để sắp xếp thứ tự kiểm tra từ trên xuống.</p>
+                    <div 
+                      class="app-fsm-list"
+                      class:fsm-list-dragging={appFsmIsDragging}
+                      role="list"
+                      aria-label="Thứ tự ưu tiên cho ứng dụng"
+                      bind:this={appFsmListEl}
+                      onpointerdown={onAppFsmContainerPointerDown}
+                      onpointermove={onAppFsmContainerPointerMove}
+                      onpointerup={onAppFsmContainerPointerUp}
+                      onpointercancel={onAppFsmContainerPointerUp}
+                    >
+                      {#each appFsmOrderedItems() as item, index (item.id)}
+                        <div 
+                          class="app-fsm-item"
+                          class:fsm-dragging={appFsmDragIndex === index}
+                          class:drag-over={appFsmDragOverIndex === index && appFsmDragIndex !== index}
+                          role="listitem"
+                          animate:flip={{ duration: 200, easing: quintOut }}
+                        >
+                          <span class="app-fsm-drag-handle" aria-hidden="true">⠿</span>
+                          <span class="app-fsm-rank">{index + 1}</span>
+                          <div class="app-fsm-icon">
+                            <svelte:component this={item.icon} size={15} />
+                          </div>
+                          <span class="app-fsm-name">{item.name}</span>
+                          <span class="app-fsm-badge {
+                            (item.id === 0 && appConfigs[selectedApp].check_spelling !== 1) ||
+                            (item.id === 1 && appConfigs[selectedApp].use_english_dictionary !== 1) ||
+                            (item.id === 2 && appConfigs[selectedApp].check_programming_keywords !== 1)
+                              ? 'badge-off' : 'badge-on'
+                          }">
+                            {(item.id === 0 && appConfigs[selectedApp].check_spelling !== 1) ||
+                             (item.id === 1 && appConfigs[selectedApp].use_english_dictionary !== 1) ||
+                             (item.id === 2 && appConfigs[selectedApp].check_programming_keywords !== 1)
+                              ? 'Tắt' : 'Bật'}
+                          </span>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
                 </div>
               {:else}
                 <div class="apps-empty-state">
@@ -4295,5 +4396,90 @@
     .fsm-order-item.drag-over {
       background: rgba(99,102,241,0.08);
     }
+  }
+
+  .app-fsm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .app-fsm-item {
+    display: flex;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .app-fsm-rank {
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    width: 14px;
+    margin-right: 8px;
+  }
+
+  .app-fsm-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+  }
+
+  .app-fsm-name {
+    font-weight: 500;
+    flex-grow: 1;
+  }
+
+  .app-fsm-drag-handle {
+    cursor: grab;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    margin-right: 8px;
+    font-size: 14px;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .app-fsm-drag-handle:active {
+    cursor: grabbing;
+  }
+
+  .app-fsm-item.fsm-dragging {
+    opacity: 0.4;
+    border-color: var(--color-accent);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  }
+
+  .app-fsm-item.drag-over {
+    border-color: var(--color-accent);
+    background: rgba(99,102,241,0.05);
+  }
+
+  .app-fsm-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 12px;
+    letter-spacing: 0.2px;
+  }
+
+  .app-fsm-badge.badge-on {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .app-fsm-badge.badge-off {
+    background: rgba(156, 163, 175, 0.12);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
   }
 </style>

@@ -10,7 +10,7 @@ pub struct MacroEntry {
 extern "C" {
     pub static mut vLanguage: c_int;
     pub static mut vInputType: c_int;
-    pub static mut vFreeMark: c_int;
+
     pub static mut vCodeTable: c_int;
     pub static mut vSwitchKeyStatus: c_int;
     pub static mut vCheckSpelling: c_int;
