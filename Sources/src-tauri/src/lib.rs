@@ -24,15 +24,15 @@ pub fn get_app_handle() -> Option<tauri::AppHandle> {
 static TRAY_ICON: OnceLock<TrayIcon<tauri::Wry>> = OnceLock::new();
 static GRAY_ICON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 static SHOW_INPUT_TYPE_ON_TRAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
-static AUTOSTART: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-static OPEN_PANEL_ON_START: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+static AUTOSTART: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+static OPEN_PANEL_ON_START: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-static CLIPBOARD_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+static CLIPBOARD_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static CLIPBOARD_PIN_ON_TOP: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
 static CLIPBOARD_AUTO_HIDE: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
-static CLIPBOARD_MAX_ITEMS: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(30);
+static CLIPBOARD_MAX_ITEMS: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(10);
 static CLIPBOARD_HOTKEY: std::sync::atomic::AtomicI32 =
     std::sync::atomic::AtomicI32::new(0x56000C09); // Default: Command + Shift + V
 static LAST_CHANGE_COUNT: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
@@ -70,8 +70,6 @@ fn default_settings() -> Settings {
         quick_start_consonant: 0,
         quick_end_consonant: 0,
         remember_code: 1,
-        other_language: 1,
-        temp_off_vnkey: 0,
         send_key_step_by_step: 0,
         fix_chromium_browser: 0,
         perform_layout_compat: 0,
@@ -86,17 +84,17 @@ fn default_settings() -> Settings {
         convert_tool_from_code: 0,
         convert_tool_to_code: 0,
         convert_tool_hotkey: 0xFE0000FEu32 as i32,
-        clipboard_enabled: 1,
+        clipboard_enabled: 0,
         clipboard_pin_on_top: 1,
         clipboard_auto_hide: 1,
-        clipboard_max_items: 30,
+        clipboard_max_items: 10,
         clipboard_hotkey: 0x56000C09,
         check_programming_keywords: 1,
         fsm_priority_order: vec![0, 2, 1],
         telex_w_as_u: 0,
         telex_bracket_as_o: 0,
-        autostart: 0,
-        open_panel_on_start: 1,
+        autostart: 1,
+        open_panel_on_start: 0,
     }
 }
 
@@ -123,8 +121,6 @@ pub struct Settings {
     pub quick_start_consonant: i32,
     pub quick_end_consonant: i32,
     pub remember_code: i32,
-    pub other_language: i32,
-    pub temp_off_vnkey: i32,
     pub send_key_step_by_step: i32,
     pub fix_chromium_browser: i32,
     pub perform_layout_compat: i32,
@@ -474,8 +470,6 @@ fn get_settings() -> Settings {
             quick_start_consonant: engine::vQuickStartConsonant,
             quick_end_consonant: engine::vQuickEndConsonant,
             remember_code: engine::vRememberCode,
-            other_language: engine::vOtherLanguage,
-            temp_off_vnkey: engine::vTempOffVNKey,
             send_key_step_by_step: engine::vSendKeyStepByStep,
             fix_chromium_browser: engine::vFixChromiumBrowser,
             perform_layout_compat: engine::vPerformLayoutCompat,
@@ -582,10 +576,7 @@ fn load_settings_from_disk(handle: &tauri::AppHandle) {
                             engine::vUseSmartSwitchKey = settings.use_smart_switch_key;
                             engine::vUpperCaseFirstChar = settings.upper_case_first_char;
                             engine::vQuickStartConsonant = settings.quick_start_consonant;
-                            engine::vQuickEndConsonant = settings.quick_end_consonant;
                             engine::vRememberCode = settings.remember_code;
-                            engine::vOtherLanguage = settings.other_language;
-                            engine::vTempOffVNKey = settings.temp_off_vnkey;
                             engine::vSendKeyStepByStep = settings.send_key_step_by_step;
                             engine::vFixChromiumBrowser = settings.fix_chromium_browser;
                             engine::vPerformLayoutCompat = settings.perform_layout_compat;
@@ -707,10 +698,7 @@ fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
         engine::vUseSmartSwitchKey = settings.use_smart_switch_key;
         engine::vUpperCaseFirstChar = settings.upper_case_first_char;
         engine::vQuickStartConsonant = settings.quick_start_consonant;
-        engine::vQuickEndConsonant = settings.quick_end_consonant;
         engine::vRememberCode = settings.remember_code;
-        engine::vOtherLanguage = settings.other_language;
-        engine::vTempOffVNKey = settings.temp_off_vnkey;
         engine::vSendKeyStepByStep = settings.send_key_step_by_step;
         engine::vFixChromiumBrowser = settings.fix_chromium_browser;
         engine::vPerformLayoutCompat = settings.perform_layout_compat;
@@ -814,10 +802,7 @@ fn reset_settings(handle: tauri::AppHandle) {
         engine::vUseSmartSwitchKey = settings.use_smart_switch_key;
         engine::vUpperCaseFirstChar = settings.upper_case_first_char;
         engine::vQuickStartConsonant = settings.quick_start_consonant;
-        engine::vQuickEndConsonant = settings.quick_end_consonant;
         engine::vRememberCode = settings.remember_code;
-        engine::vOtherLanguage = settings.other_language;
-        engine::vTempOffVNKey = settings.temp_off_vnkey;
         engine::vSendKeyStepByStep = settings.send_key_step_by_step;
         engine::vFixChromiumBrowser = settings.fix_chromium_browser;
         engine::vPerformLayoutCompat = settings.perform_layout_compat;

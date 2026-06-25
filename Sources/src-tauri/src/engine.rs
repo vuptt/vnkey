@@ -28,8 +28,6 @@ extern "C" {
     pub static mut vQuickStartConsonant: c_int;
     pub static mut vQuickEndConsonant: c_int;
     pub static mut vRememberCode: c_int;
-    pub static mut vOtherLanguage: c_int;
-    pub static mut vTempOffVNKey: c_int;
     pub static mut vDisableHotkeys: c_int;
     pub static mut vSendKeyStepByStep: c_int;
     pub static mut vFixChromiumBrowser: c_int;

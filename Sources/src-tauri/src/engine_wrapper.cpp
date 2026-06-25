@@ -33,8 +33,6 @@ extern "C" {
     int vQuickStartConsonant = 0;
     int vQuickEndConsonant = 0;
     int vRememberCode = 1;
-    int vOtherLanguage = 1;
-    int vTempOffVNKey = 0;
     int vDisableHotkeys = 0;
     // FSM priority order: 0=VI, 1=EN, 2=PROG. Default: VI → PROG → EN
     int vFsmPriorityOrder[3] = {0, 2, 1};

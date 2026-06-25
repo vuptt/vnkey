@@ -457,6 +457,85 @@ void runLatencyBenchmark(const std::vector<std::string> &corpus) {
             << " max=" << engine.maxNs << '\n';
 }
 
+// Simulate one Telex key sequence and return the committed UTF-8 output.
+// Space is appended to flush the word, then stripped from result.
+std::string simulateTelexRaw(const std::string &keys) {
+  return simulateWord(keys, /*restore=*/false, /*useDictionary=*/false);
+}
+
+// Run tone-mark position validation tests.
+// Returns number of failures.
+int runToneMarkPositionTests() {
+  // Each entry: {telex_input, expected_utf8_output}
+  // "Wrong position" words: the engine should NOT produce the invalid form.
+  // We verify the output differs from the naively-wrong form (i.e. the mark
+  // was not accepted as typed, or the word was restored to plain ASCII).
+  struct Case {
+    const char *keys;        // raw Telex keystrokes (no trailing space)
+    const char *badOutput;   // the INVALID Vietnamese form we must NOT produce
+    const char *goodOutput;  // the correct form we SHOULD produce (or raw keys if restored)
+  };
+
+  // ── Words where mark should land on the SPECIAL vowel (ê/ô/â/ơ/ư) ──────
+  static const Case cases[] = {
+    // hịên: mark (nặng) on i instead of ê → must NOT produce hịên
+    // correct: hiện (nặng on ê).  Telex: h-i-ee-j-n = "hieejn"
+    {"hieejn", "h\u1ECB\u00EAn", "hi\u1EC7n"},
+    // vịêt: mark (nặng) on i instead of ê → must NOT produce vịêt
+    // correct: việt.  Telex: v-i-ee-j-t = "vieejt"
+    {"vieejt", "v\u1ECB\u00EAt", "vi\u1EC7t"},
+    // tíêng: mark (sắc) on i instead of ê → must NOT produce tíêng
+    // correct: tiếng.  Telex: t-i-ee-n-g-s = "tieengs"
+    {"tieengs", "t\u00ED\u00EAng", "ti\u1EBFng"},
+    // sừơn: mark (huyền) on ư instead of ơ → must NOT produce sừơn
+    // correct: sườn.  Telex: s-u-ow-n-f = "suownf"
+    {"suownf", "s\u1EEB\u01A1n", "s\u01B0\u1EDDn"},
+    // mựơn: mark (nặng) on ư instead of ơ → must NOT produce mựơn
+    // correct: mượn.  Telex: m-u-ow-n-j = "muownj"
+    {"muownj", "m\u1EF1\u01A1n", "m\u01B0\u1EE3n"},
+
+    // ── Correct forms must still work (no regression) ──────────────────────
+    // hiện: Telex hieejn → hiện
+    {"hieejn", nullptr, "hi\u1EC7n"},
+    // tiếng: Telex tieengs → tiếng
+    {"tieengs", nullptr, "ti\u1EBFng"},
+    // sườn: Telex suownf → sườn
+    {"suownf", nullptr, "s\u01B0\u1EDDn"},
+    // mượn: Telex muownj → mượn
+    {"muownj", nullptr, "m\u01B0\u1EE3n"},
+    // việt: Telex vieejt → việt
+    {"vieejt", nullptr, "vi\u1EC7t"},
+  };
+
+  int passed = 0, failed = 0;
+  const int n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
+  for (int idx = 0; idx < n; ++idx) {
+    const auto &c = cases[idx];
+    const std::string got = simulateTelexRaw(c.keys);
+
+    // Check bad form is NOT produced
+    if (c.badOutput && got == std::string(c.badOutput)) {
+      ++failed;
+      std::cout << "  [FAIL] ToneMarkPos '" << c.keys
+                << "' must NOT produce '" << c.badOutput
+                << "' but got '" << got << "'\n";
+    }
+    // Check good form IS produced
+    if (c.goodOutput && got != std::string(c.goodOutput)) {
+      ++failed;
+      std::cout << "  [FAIL] ToneMarkPos '" << c.keys
+                << "' expected '" << c.goodOutput
+                << "' got '" << got << "'\n";
+    }
+    if ((c.badOutput == nullptr || got != std::string(c.badOutput)) &&
+        (c.goodOutput == nullptr || got == std::string(c.goodOutput))) {
+      ++passed;
+    }
+  }
+  std::cout << "ToneMarkPos passed=" << passed << " failed=" << failed << "\n";
+  return failed;
+}
+
 } // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -647,6 +726,7 @@ int main(int argc, char *argv[]) {
     int failures = 0;
     failures += runEnglishFSMTests();
     failures += runProgrammingFSMTests();
+    failures += runToneMarkPositionTests();
     std::cout << (failures == 0 ? "ALL FSM TESTS PASSED\n" : "SOME FSM TESTS FAILED\n");
     return failures > 0 ? 1 : 0;
   }
@@ -660,7 +740,7 @@ int main(int argc, char *argv[]) {
 
   // ── FSM unit tests ────────────────────────────────────────────────────────
   std::cout << "=== FSM Unit Tests ===\n";
-  const int fsmFailures = runEnglishFSMTests() + runProgrammingFSMTests();
+  const int fsmFailures = runEnglishFSMTests() + runProgrammingFSMTests() + runToneMarkPositionTests();
   std::cout << (fsmFailures == 0 ? "ALL FSM TESTS PASSED\n" : "SOME FSM TESTS FAILED\n") << "\n";
 
   // ── Corpus accuracy tests ─────────────────────────────────────────────────

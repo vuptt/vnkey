@@ -771,9 +771,6 @@ extern "C" {
                         _hasJustUsedHotKey = true;
                         return NULL;
                     }
-                    if (vTempOffVNKey && !_hasJustUsedHotKey && _lastFlag & kCGEventFlagMaskCommand) {
-                        vTempOffEngine();
-                    }
                     _lastFlag = 0;
                     _hasJustUsedHotKey = false;
                 }
@@ -811,11 +808,7 @@ extern "C" {
             return event;
         }
 
-        //if "turn off Vietnamese when in other language" mode on
-        if (vOtherLanguage && !_currentInputSourceIsEnglish) {
-            return event;
-        }
-        
+
         //handle keyboard
         if (type == kCGEventKeyDown) {
             //send event signal to Engine

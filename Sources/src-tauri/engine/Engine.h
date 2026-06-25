@@ -170,18 +170,6 @@ extern int vQuickEndConsonant;
  */
 extern int vRememberCode;
 
-/**
- * 0: No; 1: Yes
- * Turn off Vietnamese when typing in another language.
- */
-extern int vOtherLanguage;
-
-/**
- * 0: No; 1: Yes
- * Temporarily turn off VNKey  by hot key (Command on mac, Alt on Windows and Linux)
- */
-extern int vTempOffVNKey;
-
 extern int vCheckProgrammingKeywords;
 
 /**

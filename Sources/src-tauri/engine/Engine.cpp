@@ -395,6 +395,21 @@ void checkSpelling(const bool& forceCheckVowel=false) {
                     _spellingOK = false;
                 }
             }
+            
+            //validate tone mark position: if a "special" vowel (ê/ô/â = TONE_MASK,
+            //or ơ/ư/ă = TONEW_MASK) exists in the syllable, the tone mark must be
+            //on that vowel, not on a plain vowel (e.g. hịên, sừơn are invalid).
+            if (_spellingOK && (k - (int)VSI) >= 2) {
+                int _markAt = -1, _specialAt = -1;
+                for (int _vi = (int)VSI; _vi < k; _vi++) {
+                    if (TypingWord[_vi] & MARK_MASK)
+                        _markAt = _vi;
+                    if ((TypingWord[_vi] & TONE_MASK) || (TypingWord[_vi] & TONEW_MASK))
+                        _specialAt = _vi;
+                }
+                if (_markAt >= 0 && _specialAt >= 0 && _markAt != _specialAt)
+                    _spellingOK = false;
+            }
         }
     } else {
         _spellingOK = true;

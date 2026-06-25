@@ -35,8 +35,6 @@
     quick_start_consonant: number;
     quick_end_consonant: number;
     remember_code: number;
-    other_language: number;
-    temp_off_vnkey: number;
     send_key_step_by_step: number;
     fix_chromium_browser: number;
     perform_layout_compat: number;
@@ -85,8 +83,6 @@
     quick_start_consonant: 0,
     quick_end_consonant: 0,
     remember_code: 1,
-    other_language: 1,
-    temp_off_vnkey: 0,
     send_key_step_by_step: 0,
     fix_chromium_browser: 0,
     perform_layout_compat: 0,
@@ -101,15 +97,15 @@
     convert_tool_from_code: 0,
     convert_tool_to_code: 0,
     convert_tool_hotkey: 0xFE0000FE,
-    clipboard_enabled: 1,
+    clipboard_enabled: 0,
     clipboard_pin_on_top: 1,
     clipboard_auto_hide: 1,
-    clipboard_max_items: 30,
+    clipboard_max_items: 10,
     clipboard_hotkey: 0x56000C09, // Command + Shift + V
     telex_w_as_u: 0,
     telex_bracket_as_o: 0,
-    autostart: 0,
-    open_panel_on_start: 1,
+    autostart: 1,
+    open_panel_on_start: 0,
   });
 
   let activeTab = $state(0);
@@ -302,9 +298,11 @@
 
   // Sync Options
   let syncSettings = $state(true);
+  let syncVietnameseDict = $state(true);
   let syncEnglishDict = $state(true);
+  let syncProgrammingKeywords = $state(true);
   let syncMacros = $state(true);
-  let syncClipboard = $state(true);
+  let syncClipboard = $state(false);
   let syncAppConfigs = $state(true);
 
   const charToMacKeyCode: Record<string, number> = {
@@ -633,14 +631,15 @@
       input_type: settings.input_type,
       free_mark: settings.free_mark,
       code_table: settings.code_table,
-      check_spelling: settings.check_spelling,
+      check_spelling: 1,
       use_modern_orthography: settings.use_modern_orthography,
       quick_telex: settings.quick_telex,
-      use_english_dictionary: settings.use_english_dictionary,
+      use_english_dictionary: 1,
+      check_programming_keywords: 1,
       use_macro: settings.use_macro,
       use_macro_in_english_mode: settings.use_macro_in_english_mode,
       auto_caps_macro: settings.auto_caps_macro,
-      upper_case_first_char: settings.upper_case_first_char,
+      upper_case_first_char: 1,
       allow_consonant_zfwj: settings.allow_consonant_zfwj,
       quick_start_consonant: settings.quick_start_consonant,
       quick_end_consonant: settings.quick_end_consonant,
@@ -1059,9 +1058,11 @@
       let gToken = await invoke<string>("get_kv", { key: "gdriveAccessToken" }) || "";
       gdriveConnected = gToken !== "";
       syncSettings = (await invoke<string>("get_kv", { key: "syncSettings" })) !== "0";
+      syncVietnameseDict = (await invoke<string>("get_kv", { key: "syncVietnameseDict" })) !== "0";
       syncEnglishDict = (await invoke<string>("get_kv", { key: "syncEnglishDict" })) !== "0";
+      syncProgrammingKeywords = (await invoke<string>("get_kv", { key: "syncProgrammingKeywords" })) !== "0";
       syncMacros = (await invoke<string>("get_kv", { key: "syncMacros" })) !== "0";
-      syncClipboard = (await invoke<string>("get_kv", { key: "syncClipboard" })) !== "0";
+      syncClipboard = (await invoke<string>("get_kv", { key: "syncClipboard" })) === "1";
       syncAppConfigs = (await invoke<string>("get_kv", { key: "syncAppConfigs" })) !== "0";
     } catch (e) {
       console.error(e);
@@ -1076,7 +1077,9 @@
       await invoke("set_kv", { key: "cloudBucketName", value: cloudBucketName });
       await invoke("set_kv", { key: "syncMethod", value: syncMethod });
       await invoke("set_kv", { key: "syncSettings", value: syncSettings ? "1" : "0" });
+      await invoke("set_kv", { key: "syncVietnameseDict", value: syncVietnameseDict ? "1" : "0" });
       await invoke("set_kv", { key: "syncEnglishDict", value: syncEnglishDict ? "1" : "0" });
+      await invoke("set_kv", { key: "syncProgrammingKeywords", value: syncProgrammingKeywords ? "1" : "0" });
       await invoke("set_kv", { key: "syncMacros", value: syncMacros ? "1" : "0" });
       await invoke("set_kv", { key: "syncClipboard", value: syncClipboard ? "1" : "0" });
       await invoke("set_kv", { key: "syncAppConfigs", value: syncAppConfigs ? "1" : "0" });
@@ -1262,7 +1265,7 @@
         </button>
         <button class="nav-item" class:active={activeTab === 6} onclick={() => activeTab = 6}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-          Ứng dụng
+          Thiết lập ứng dụng cá nhân
         </button>
         <button class="nav-item" class:active={activeTab === 7} onclick={() => activeTab = 7}>
           <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1405,7 +1408,7 @@
               </label>
 
               <label class="toggle-container">
-                <span class="toggle-text">Đặt dấu hiện đại <kbd>oà</kbd>, <kbd>uý</kbd> (thay vì kiểu cũ <kbd>òa</kbd>, <kbd>úy</kbd>) <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Quy tắc đặt dấu hiện đại:</strong><br/>Đặt dấu trên nguyên âm chính trong các cụm như <kbd>oà</kbd>, <kbd>uý</kbd> thay vì kiểu cũ <kbd>òa</kbd>, <kbd>úy</kbd> (áp dụng cho các cụm <kbd>oa</kbd>, <kbd>oe</kbd>, <kbd>uy</kbd>)."}>?</span></span>
+                <span class="toggle-text">Đặt dấu hiện đại <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Đặt dấu hiện đại:</strong><br/>Đặt dấu trên nguyên âm chính trong các cụm như <kbd>oà</kbd>, <kbd>uý</kbd> (thay vì kiểu cũ <kbd>òa</kbd>, <kbd>úy</kbd>). Áp dụng cho các cụm <kbd>oa</kbd>, <kbd>oe</kbd>, <kbd>uy</kbd>."}>?</span></span>
                 <div class="switch">
                   <input type="checkbox" checked={settings.use_modern_orthography === 1} onchange={(e) => handleCheckboxChange('use_modern_orthography', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
@@ -1828,6 +1831,7 @@
                 </select>
               </label>
 
+              <div class="section-divider"></div>
               <div class="form-group mt-15">
                 <h3>Tùy chọn văn bản đầu ra</h3>
                 <div class="toggles-grid-compact">
@@ -1970,14 +1974,28 @@
                 </div>
               </label>
               <label class="toggle-container">
-                <span class="toggle-text">Từ điển kiểm tra Tiếng Anh</span>
+                <span class="toggle-text">Từ điển tiếng Việt cá nhân</span>
+                <div class="switch">
+                  <input type="checkbox" bind:checked={syncVietnameseDict} onchange={saveCloudSettings} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+              <label class="toggle-container">
+                <span class="toggle-text">Từ điển tiếng Anh cá nhân</span>
                 <div class="switch">
                   <input type="checkbox" bind:checked={syncEnglishDict} onchange={saveCloudSettings} />
                   <span class="slider"></span>
                 </div>
               </label>
               <label class="toggle-container">
-                <span class="toggle-text">Từ gõ tắt</span>
+                <span class="toggle-text">Từ khóa lập trình cá nhân</span>
+                <div class="switch">
+                  <input type="checkbox" bind:checked={syncProgrammingKeywords} onchange={saveCloudSettings} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+              <label class="toggle-container">
+                <span class="toggle-text">Thư viện từ gõ tắt</span>
                 <div class="switch">
                   <input type="checkbox" bind:checked={syncMacros} onchange={saveCloudSettings} />
                   <span class="slider"></span>
@@ -1991,7 +2009,7 @@
                 </div>
               </label>
               <label class="toggle-container">
-                <span class="toggle-text">Ứng dụng</span>
+                <span class="toggle-text">Thiết lập ứng dụng cá nhân</span>
                 <div class="switch">
                   <input type="checkbox" bind:checked={syncAppConfigs} onchange={saveCloudSettings} />
                   <span class="slider"></span>
@@ -2091,7 +2109,7 @@
             <h3>Khởi động & Vận hành</h3>
             <div class="toggles-grid">
               <label class="toggle-container">
-                <span class="toggle-text">Khởi động VNKey cùng hệ thống</span>
+                <span class="toggle-text">Khởi động cùng hệ thống</span>
                 <div class="switch">
                   <input type="checkbox" checked={settings.autostart === 1} onchange={(e) => handleCheckboxChange('autostart', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
@@ -2099,7 +2117,7 @@
               </label>
 
               <label class="toggle-container">
-                <span class="toggle-text">Mở bảng điều khiển khi mở VNKey</span>
+                <span class="toggle-text">Mở bảng điều khiển khi khởi động</span>
                 <div class="switch">
                   <input type="checkbox" checked={settings.open_panel_on_start === 1} onchange={(e) => handleCheckboxChange('open_panel_on_start', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
@@ -2123,22 +2141,6 @@
                 <span class="toggle-text">Tự động nhớ bảng mã riêng cho từng ứng dụng <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Nhớ bảng mã riêng:</strong><br/>Khôi phục tự động bảng mã đã sử dụng gần nhất khi bạn quay lại làm việc trên ứng dụng đó."}>?</span></span>
                 <div class="switch">
                   <input type="checkbox" checked={settings.remember_code === 1} onchange={(e) => handleCheckboxChange('remember_code', (e.target as HTMLInputElement).checked)} />
-                  <span class="slider"></span>
-                </div>
-              </label>
-
-              <label class="toggle-container">
-                <span class="toggle-text">Tắt tiếng Việt khi bộ gõ hệ thống khác tiếng Anh</span>
-                <div class="switch">
-                  <input type="checkbox" checked={settings.other_language === 1} onchange={(e) => handleCheckboxChange('other_language', (e.target as HTMLInputElement).checked)} />
-                  <span class="slider"></span>
-                </div>
-              </label>
-
-              <label class="toggle-container">
-                <span class="toggle-text">Tạm tắt bộ gõ bằng phím tắt</span>
-                <div class="switch">
-                  <input type="checkbox" checked={settings.temp_off_vnkey === 1} onchange={(e) => handleCheckboxChange('temp_off_vnkey', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
                 </div>
               </label>
@@ -2237,8 +2239,7 @@
                 <li>Đặt lại thiết lập công cụ chuyển mã</li>
                 <li>Đặt lại thiết lập Bảng ghi nhớ</li>
                 <li>Đặt lại phím tắt chuyển đổi, công cụ chuyển mã, Bảng ghi nhớ</li>
-                <li>Khôi phục từ điển tiếng Anh về danh sách mặc định ban đầu</li>
-                <li>Xóa toàn bộ từ khóa lập trình (vì đã có bộ từ khóa tích hợp)</li>
+                <li>Khôi phục tất cả các từ điển cá nhân (tiếng Việt, tiếng Anh, từ khóa lập trình)</li>
                 <li>Đặt lại thứ tự ưu tiên ngôn ngữ về mặc định</li>
               </ul>
               <div class="modal-actions">
@@ -2303,12 +2304,12 @@
                   type="number"
                   disabled={settings.clipboard_enabled !== 1}
                   min="10"
-                  max="100"
+                  max="30"
                   value={settings.clipboard_max_items}
                   onchange={(e) => {
-                    let val = parseInt((e.target as HTMLInputElement).value) || 30;
+                    let val = parseInt((e.target as HTMLInputElement).value) || 10;
                     if (val < 10) val = 10;
-                    if (val > 100) val = 100;
+                    if (val > 30) val = 30;
                     settings.clipboard_max_items = val;
                     saveSettings();
                   }}
@@ -2478,7 +2479,7 @@
                       </label>
 
                       <label class="toggle-container">
-                        <span class="toggle-text">Đặt dấu hiện đại <kbd>oà</kbd>, <kbd>uý</kbd> (thay vì kiểu cũ <kbd>òa</kbd>, <kbd>úy</kbd>) <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Quy tắc đặt dấu hiện đại:</strong><br/>Đặt dấu trên nguyên âm chính trong các cụm như <kbd>oà</kbd>, <kbd>uý</kbd> thay vì kiểu cũ <kbd>òa</kbd>, <kbd>úy</kbd> (áp dụng cho các cụm <kbd>oa</kbd>, <kbd>oe</kbd>, <kbd>uy</kbd>)."}>?</span></span>
+                        <span class="toggle-text">Đặt dấu hiện đại <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Đặt dấu hiện đại:</strong><br/>Đặt dấu trên nguyên âm chính trong các cụm như <kbd>oà</kbd>, <kbd>uý</kbd> (thay vì kiểu cũ <kbd>òa</kbd>, <kbd>úy</kbd>). Áp dụng cho các cụm <kbd>oa</kbd>, <kbd>oe</kbd>, <kbd>uy</kbd>."}>?</span></span>
                         <div class="switch">
                           <input type="checkbox" checked={appConfigs[selectedApp].use_modern_orthography === 1} onchange={(e) => updateAppConfigField('use_modern_orthography', (e.target as HTMLInputElement).checked ? 1 : 0)} />
                           <span class="slider"></span>
