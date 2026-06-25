@@ -25,7 +25,7 @@ static TRAY_ICON: OnceLock<TrayIcon<tauri::Wry>> = OnceLock::new();
 static GRAY_ICON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 static SHOW_INPUT_TYPE_ON_TRAY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 static AUTOSTART: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
-static OPEN_PANEL_ON_START: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static OPEN_PANEL_ON_START: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 static CLIPBOARD_ENABLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static CLIPBOARD_PIN_ON_TOP: std::sync::atomic::AtomicBool =
@@ -94,7 +94,7 @@ fn default_settings() -> Settings {
         telex_w_as_u: 0,
         telex_bracket_as_o: 0,
         autostart: 1,
-        open_panel_on_start: 0,
+        open_panel_on_start: 1,
     }
 }
 
