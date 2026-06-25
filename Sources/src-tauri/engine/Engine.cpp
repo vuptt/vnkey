@@ -64,6 +64,8 @@ static Uint32 TypingWord[MAX_BUFF];
 static Byte _index = 0;
 static vector<Uint32> _longWordHelper; //save the word when _index >= MAX_BUFF
 static list<vector<Uint32>> _typingStates; //Aug 28th, 2019: typing helper, save long state of Typing word, can go back and modify the word
+static list<vector<Uint32>> _typingStatesKeyStates;
+static list<vector<Uint32>> _typingStatesRawTyping;
 vector<Uint32> _typingStatesData;
 
 /**
@@ -184,6 +186,8 @@ void* vKeyInit() {
     _useSpellCheckingBefore = vCheckSpelling;
     _typingStatesData.clear();
     _typingStates.clear();
+    _typingStatesKeyStates.clear();
+    _typingStatesRawTyping.clear();
     _longWordHelper.clear();
     _rawTyping.clear();
     _liveProgrammingContext = false;
@@ -467,10 +471,14 @@ void saveWord() {
                     if (i != 0 && i % MAX_BUFF == 0) { //save if overflow
                         _typingStates.push_back(_typingStatesData);
                         _typingStatesData.clear();
+                        _typingStatesKeyStates.push_back(vector<Uint32>());
+                        _typingStatesRawTyping.push_back(vector<Uint32>());
                     }
                     _typingStatesData.push_back(_longWordHelper[i]);
                 }
                 _typingStates.push_back(_typingStatesData);
+                _typingStatesKeyStates.push_back(vector<Uint32>());
+                _typingStatesRawTyping.push_back(vector<Uint32>());
                 _longWordHelper.clear();
             }
             
@@ -480,6 +488,13 @@ void saveWord() {
                 _typingStatesData.push_back(TypingWord[i]);
             }
             _typingStates.push_back(_typingStatesData);
+            
+            vector<Uint32> currentKeyStates;
+            for (i = 0; i < _stateIndex; i++) {
+                currentKeyStates.push_back(KeyStates[i]);
+            }
+            _typingStatesKeyStates.push_back(currentKeyStates);
+            _typingStatesRawTyping.push_back(_rawTyping);
         }
     } else { //save macro words
         _typingStatesData.clear();
@@ -487,27 +502,44 @@ void saveWord() {
             if (i != 0 && i % MAX_BUFF == 0) { //break if overflow
                 _typingStates.push_back(_typingStatesData);
                 _typingStatesData.clear();
+                _typingStatesKeyStates.push_back(vector<Uint32>());
+                _typingStatesRawTyping.push_back(vector<Uint32>());
             }
             _typingStatesData.push_back(hMacroData[i]);
         }
         _typingStates.push_back(_typingStatesData);
+        
+        vector<Uint32> macroKeyStates;
+        for (i = 0; i < (int)hMacroKey.size(); i++) {
+            macroKeyStates.push_back(hMacroKey[i]);
+        }
+        _typingStatesKeyStates.push_back(macroKeyStates);
+        _typingStatesRawTyping.push_back(macroKeyStates);
     }
 }
 
 void saveWord(const Uint32& keyCode, const int& count) {
     _typingStatesData.clear();
+    vector<Uint32> keys;
     for (i = 0; i < count; i++) {
         _typingStatesData.push_back(keyCode);
+        keys.push_back(keyCode);
     }
     _typingStates.push_back(_typingStatesData);
+    _typingStatesKeyStates.push_back(keys);
+    _typingStatesRawTyping.push_back(keys);
 }
 
 void saveSpecialChar() {
     _typingStatesData.clear();
+    vector<Uint32> keys;
     for (i = 0; i < (int)_specialChar.size(); i++) {
         _typingStatesData.push_back(_specialChar[i]);
+        keys.push_back(_specialChar[i]);
     }
     _typingStates.push_back(_typingStatesData);
+    _typingStatesKeyStates.push_back(keys);
+    _typingStatesRawTyping.push_back(keys);
     _specialChar.clear();
 }
 
@@ -515,19 +547,41 @@ void restoreLastTypingState() {
     if (_typingStates.size() > 0) {
         _typingStatesData = _typingStates.back();
         _typingStates.pop_back();
+        
+        vector<Uint32> poppedKeyStates;
+        vector<Uint32> poppedRawTyping;
+        if (!_typingStatesKeyStates.empty()) {
+            poppedKeyStates = _typingStatesKeyStates.back();
+            _typingStatesKeyStates.pop_back();
+        }
+        if (!_typingStatesRawTyping.empty()) {
+            poppedRawTyping = _typingStatesRawTyping.back();
+            _typingStatesRawTyping.pop_back();
+        }
+        
         if (_typingStatesData.size() > 0){
             if (_typingStatesData[0] == KEY_SPACE) {
                 _spaceCount = (int)_typingStatesData.size();
                 _index = 0;
+                _stateIndex = 0;
+                _rawTyping.clear();
             } else if (isCharKeyCode((Uint16)_typingStatesData[0])) {
                 _index = 0;
                 _specialChar = _typingStatesData;
+                _stateIndex = 0;
+                _rawTyping.clear();
                 checkSpelling();
             } else {
                 for (i = 0; i < (int)_typingStatesData.size(); i++) {
                     TypingWord[i] = _typingStatesData[i];
                 }
                 _index = (Byte)_typingStatesData.size();
+                
+                _stateIndex = (Byte)poppedKeyStates.size();
+                for (i = 0; i < (int)poppedKeyStates.size(); i++) {
+                    KeyStates[i] = poppedKeyStates[i];
+                }
+                _rawTyping = poppedRawTyping;
             }
         }
     }
@@ -861,8 +915,13 @@ void insertMark(const Uint32& markMask, const bool& canModifyFlag) {
     if (TypingWord[VWSM] & markMask) {
         
         TypingWord[VWSM] &= ~MARK_MASK;
-        if (canModifyFlag)
+        if (canModifyFlag) {
             hCode = vRestore;
+            if (markMask == MARK4_MASK || markMask == MARK5_MASK) {
+                if (!_rawTyping.empty()) _rawTyping.pop_back();
+                if (_stateIndex > 0) _stateIndex--;
+            }
+        }
         for (ii = VSI; ii < _index; ii++) {
             TypingWord[ii] &= ~MARK_MASK;
             hData[kk--] = GET(TypingWord[ii]);
@@ -974,6 +1033,8 @@ void insertW(const Uint16& data, const bool& isCaps) {
             ((TypingWord[VSI] & TONEW_MASK) && CHR(VSI+1) == KEY_A)){
             //restore and disable temporary
             hCode = vRestore;
+            if (!_rawTyping.empty()) _rawTyping.pop_back();
+            if (_stateIndex > 0) _stateIndex--;
             
             for (ii = VSI; ii < _index; ii++) {
                 TypingWord[ii] &= ~TONEW_MASK;
@@ -1511,6 +1572,8 @@ void vKeyHandleEvent(const vKeyEvent& event,
         if (!_isCharKeyCode) { //clear all line cache
             _specialChar.clear();
             _typingStates.clear();
+            _typingStatesKeyStates.clear();
+            _typingStatesRawTyping.clear();
         } else { //check and save current word
             if (_spaceCount > 0) {
                 saveWord(KEY_SPACE, _spaceCount);
@@ -1592,9 +1655,6 @@ void vKeyHandleEvent(const vKeyEvent& event,
     } else if (data == KEY_DELETE) {
         hCode = vDoNothing;
         hExt = 2; //delete
-        if (!_rawTyping.empty()) {
-            _rawTyping.pop_back();
-        }
         if (_specialChar.size() > 0) {
             _specialChar.pop_back();
             if (_specialChar.size() == 0) {
@@ -1606,6 +1666,9 @@ void vKeyHandleEvent(const vKeyEvent& event,
                 restoreLastTypingState();
             }
         } else {
+            if (!_rawTyping.empty()) {
+                _rawTyping.pop_back();
+            }
             if (_stateIndex > 0) {
                 _stateIndex--;
             }

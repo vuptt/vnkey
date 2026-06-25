@@ -39,6 +39,8 @@ int vOtherLanguage = 0;
 int vTempOffVNKey = 0;
 int vCheckProgrammingKeywords = 0;
 int vFsmPriorityOrder[3] = {0, 1, 2};
+int vTelexWAsU = 1;
+int vTelexBracketAsO = 1;
 
 namespace {
 
