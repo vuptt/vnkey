@@ -66,17 +66,27 @@ npm ci
 npm run check
 
 BUNDLES="app"
+TARGET_FLAG=""
+TARGET_DIR="release"
+ARCH="aarch64"
+if [ "$(uname -m)" = "x86_64" ]; then
+    ARCH="x64"
+fi
+
 if [ "$ACTION" = "build-installer" ]; then
     BUNDLES="app,dmg"
+    TARGET_FLAG="--target universal-apple-darwin"
+    TARGET_DIR="universal-apple-darwin/release"
+    ARCH="universal"
 fi
 
-rm -rf "$TAURI_DIR/src-tauri/target/release/bundle/macos/VNKey.app"
+rm -rf "$TAURI_DIR/src-tauri/target/$TARGET_DIR/bundle/macos/VNKey.app"
 if [ "$ACTION" = "build-installer" ]; then
-    rm -rf "$TAURI_DIR/src-tauri/target/release/bundle/dmg"
+    rm -rf "$TAURI_DIR/src-tauri/target/$TARGET_DIR/bundle/dmg"
 fi
-npm run tauri build -- --bundles "$BUNDLES"
+npm run tauri build -- $TARGET_FLAG --bundles "$BUNDLES"
 
-APP_PATH="$TAURI_DIR/src-tauri/target/release/bundle/macos/VNKey.app"
+APP_PATH="$TAURI_DIR/src-tauri/target/$TARGET_DIR/bundle/macos/VNKey.app"
 if [ ! -d "$APP_PATH" ]; then
     echo "Error: expected application bundle was not produced: $APP_PATH"
     exit 1
@@ -88,12 +98,18 @@ BUILD_OUT_DIR="$WORKSPACE_ROOT/.build"
 mkdir -p "$BUILD_OUT_DIR"
 echo "=== Copying macOS build artifacts to $BUILD_OUT_DIR ==="
 rm -rf "$BUILD_OUT_DIR/VNKey.app"
-rm -f "$BUILD_OUT_DIR/VNKey.tar.gz"
+
+# Copy the app bundle
 cp -R "$APP_PATH" "$BUILD_OUT_DIR/"
-echo "=== Compressing VNKey.app to VNKey.tar.gz ==="
-tar -czf "$BUILD_OUT_DIR/VNKey.tar.gz" -C "$BUILD_OUT_DIR" VNKey.app
+
+VERSION=$(node -p "require('./package.json').version")
+TAR_NAME="VNKey_${VERSION}_${ARCH}.tar.gz"
+
+echo "=== Compressing VNKey.app to $TAR_NAME ==="
+rm -f "$BUILD_OUT_DIR"/VNKey_*.tar.gz
+tar -czf "$BUILD_OUT_DIR/$TAR_NAME" -C "$BUILD_OUT_DIR" VNKey.app
 if [ "$ACTION" = "build-installer" ]; then
-    find "$TAURI_DIR/src-tauri/target/release/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' -exec cp {} "$BUILD_OUT_DIR/" \;
+    find "$TAURI_DIR/src-tauri/target/$TARGET_DIR/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' -exec cp {} "$BUILD_OUT_DIR/" \;
 fi
 
 if [ "$ACTION" = "install" ]; then

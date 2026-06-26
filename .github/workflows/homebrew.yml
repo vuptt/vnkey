@@ -1,0 +1,19 @@
+name: Bump Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  homebrew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bump Formula
+        uses: dawidd6/action-homebrew-bump-formula@v3
+        with:
+          # A personal access token (PAT) with 'repo' scope, stored as a secret in your vnkey repo.
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Name of the formula file (without .rb, e.g. 'vnkey' to update 'vnkey.rb')
+          formula: vnkey
+          # The destination tap repository (e.g., username/homebrew-tap)
+          tap: hoquangthaiholy/homebrew-vnkey
