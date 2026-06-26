@@ -45,13 +45,13 @@
     <div class="onboarding-card">
       <div class="badge-wrapper">
         <div class="accessibility-badge">
-          <!-- System-like accessibility icon: human figure in a circle -->
+          <!-- Professional accessibility icon: universal access figure in a circle -->
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="6.5" r="1.5" fill="currentColor" />
-            <path d="M6 11c2 0 4-1 6-1s4 1 6 1" />
-            <path d="M12 10v4" />
-            <path d="m9 18 3-4 3 4" />
+            <path d="M12 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />
+            <path d="M7 10.5c3.5-1 6.5-1 10 0" />
+            <path d="M12 9v5" />
+            <path d="M9.5 19.5 12 14l2.5 5.5" />
           </svg>
         </div>
       </div>
@@ -148,14 +148,14 @@
     width: 72px;
     height: 72px;
     border-radius: 18px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 24px rgba(0, 122, 255, 0.25);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     object-fit: contain;
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
 
   .logo:hover {
     transform: scale(1.08);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 35px rgba(0, 122, 255, 0.5);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
   }
 
   h1 {
@@ -190,7 +190,7 @@
     padding: 20px;
     box-shadow: var(--card-shadow);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 20px;
   }
 
@@ -202,20 +202,20 @@
   }
 
   .accessibility-badge {
-    width: 64px;
-    height: 64px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: linear-gradient(135deg, #007aff, #0056b3);
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
   .accessibility-badge svg {
-    width: 38px;
-    height: 38px;
+    width: 20px;
+    height: 20px;
   }
 
   .instructions {

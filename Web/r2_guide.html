@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hướng dẫn cấu hình Cloudflare R2 - VNKey</title>
+    <title id="site-title">Hướng dẫn cấu hình Cloudflare R2 - VNKey</title>
     <link rel="stylesheet" href="style.css">
+    <script>
+        // Immediately set the language to avoid flashing
+        const savedLang = localStorage.getItem('vnkey-lang') || 'vi';
+        document.documentElement.setAttribute('lang', savedLang);
+    </script>
     <style>
         .guide-container {
             max-width: 800px;
@@ -14,11 +19,27 @@
         .step-list {
             list-style: none;
             margin-top: 2rem;
+            position: relative;
+        }
+        .step-list::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            bottom: 20px;
+            width: 2px;
+            background: rgba(10, 70, 153, 0.08);
+            z-index: 0;
         }
         .step-item {
             margin-bottom: 2.5rem;
             position: relative;
             padding-left: 3.5rem;
+            transition: var(--transition-smooth);
+        }
+        .step-item:hover .step-number {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
         }
         .step-number {
             position: absolute;
@@ -34,10 +55,17 @@
             font-weight: 700;
             font-size: 1.1rem;
             box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+            color: white;
+            z-index: 1;
+            transition: var(--transition-smooth);
         }
         .step-content h3 {
             margin-bottom: 0.5rem;
             font-size: 1.25rem;
+            transition: var(--transition-smooth);
+        }
+        .step-item:hover .step-content h3 {
+            color: var(--accent-color);
         }
         .step-content p {
             color: var(--text-secondary);
@@ -45,15 +73,15 @@
             line-height: 1.6;
         }
         .code-block {
-            background: rgba(0, 0, 0, 0.3);
+            background: #0f172a;
             border: 1px solid var(--border-glass);
             border-radius: 8px;
             padding: 1rem;
-            font-family: monospace;
+            font-family: Menlo, Monaco, Consolas, Courier New, monospace;
             font-size: 0.9rem;
             margin-top: 0.75rem;
             overflow-x: auto;
-            color: #60a5fa;
+            color: #34d399;
         }
         .back-link {
             display: inline-flex;
@@ -67,6 +95,7 @@
         }
         .back-link:hover {
             color: var(--text-primary);
+            transform: translateX(-4px);
         }
     </style>
 </head>
@@ -75,40 +104,60 @@
     <nav class="scrolled">
         <div class="container nav-container">
             <a href="index.html" class="logo-wrapper">
-                <div class="logo-icon">V</div>
+                <img src="assets/img/Logo.svg" alt="VNKey Logo" class="logo-img">
                 <div class="brand-name">VN<span>Key</span></div>
             </a>
             <ul class="nav-links">
-                <li><a href="index.html#features">Tính năng</a></li>
-                <li><a href="index.html#simulator">Trải nghiệm</a></li>
-                <li><a href="auth.html" class="btn btn-secondary">Cổng Google Drive</a></li>
+                <li><a href="index.html#features"><span lang="vi">Tính năng</span><span lang="en">Features</span></a></li>
+                <li><a href="index.html#simulator"><span lang="vi">Trải nghiệm</span><span lang="en">Try VNKey</span></a></li>
+                <li class="lang-switcher">
+                    <button class="lang-btn" data-lang="vi">VI</button>
+                    <span class="lang-divider">|</span>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </li>
             </ul>
         </div>
     </nav>
 
     <!-- Guide Content -->
     <div class="guide-container">
-        <a href="index.html" class="back-link">← Quay lại trang chủ</a>
+        <a href="index.html" class="back-link">
+            <span lang="vi">← Quay lại trang chủ</span>
+            <span lang="en">← Back to Home</span>
+        </a>
         
         <h1 style="font-size: 2.5rem; margin-bottom: 1rem; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            Hướng dẫn kết nối Cloudflare R2
+            <span lang="vi">Hướng dẫn kết nối Cloudflare R2</span>
+            <span lang="en">Cloudflare R2 Connection Guide</span>
         </h1>
-        <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;">
+        <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;" lang="vi">
             Cloudflare R2 cung cấp không gian lưu trữ tương thích S3 miễn phí lên đến 10 GB/tháng. Đây là giải pháp thay thế tuyệt vời cho Google Drive để đồng bộ cấu hình VNKey.
+        </p>
+        <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;" lang="en">
+            Cloudflare R2 offers S3-compatible cloud storage free up to 10 GB/month. This is an excellent alternative to Google Drive for syncing your VNKey configuration.
         </p>
 
         <div class="glass-panel" style="padding: 2.5rem; border-radius: 16px;">
-            <h2 style="font-size: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.75rem;">Các bước thiết lập chi tiết</h2>
+            <h2 style="font-size: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-glass); padding-bottom: 0.75rem;">
+                <span lang="vi">Các bước thiết lập chi tiết</span>
+                <span lang="en">Detailed Setup Steps</span>
+            </h2>
             
             <ul class="step-list">
                 <!-- Step 1 -->
                 <li class="step-item">
                     <div class="step-number">1</div>
                     <div class="step-content">
-                        <h3>Tạo Bucket trên Cloudflare R2</h3>
-                        <p>
+                        <h3 lang="vi">Tạo Bucket trên Cloudflare R2</h3>
+                        <h3 lang="en">Create a Cloudflare R2 Bucket</h3>
+                        
+                        <p lang="vi">
                             Đăng nhập vào bảng điều khiển <strong>Cloudflare</strong> > chọn mục <strong>R2</strong> ở thanh menu bên trái. 
-                            Nhấp vào nút <strong>Create Bucket</strong>, đặt tên cho bucket của bạn (ví dụ: <code style="color: #60a5fa;">vnkey-sync</code>) và nhấn <strong>Create bucket</strong> để hoàn thành.
+                            Nhấp vào nút <strong>Create Bucket</strong>, đặt tên cho bucket của bạn (ví dụ: <code style="color: var(--accent-color); font-weight: 600;">vnkey-sync</code>) và nhấn <strong>Create bucket</strong> để hoàn thành.
+                        </p>
+                        <p lang="en">
+                            Log in to your <strong>Cloudflare</strong> dashboard > select <strong>R2</strong> in the left sidebar menu.
+                            Click the <strong>Create Bucket</strong> button, name your bucket (e.g., <code style="color: var(--accent-color); font-weight: 600;">vnkey-sync</code>), and click <strong>Create bucket</strong> to finish.
                         </p>
                     </div>
                 </li>
@@ -117,10 +166,16 @@
                 <li class="step-item">
                     <div class="step-number">2</div>
                     <div class="step-content">
-                        <h3>Lấy thông tin Account ID</h3>
-                        <p>
+                        <h3 lang="vi">Lấy thông tin Account ID</h3>
+                        <h3 lang="en">Retrieve your Account ID</h3>
+                        
+                        <p lang="vi">
                             Tại giao diện R2 chính, bạn sẽ thấy thông tin <strong>Account ID</strong> nằm ở khung thông tin phía bên phải màn hình. 
-                            Hãy sao chép chuỗi ký tự này (nó có dạng tương tự như: <code style="color: #60a5fa;">a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6</code>).
+                            Hãy sao chép chuỗi ký tự này (nó có dạng tương tự như: <code style="color: var(--accent-color); font-weight: 600;">a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6</code>).
+                        </p>
+                        <p lang="en">
+                            From the main R2 dashboard, you will find your <strong>Account ID</strong> in the details section on the right side of the screen.
+                            Copy this string (it will look similar to: <code style="color: var(--accent-color); font-weight: 600;">a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6</code>).
                         </p>
                     </div>
                 </li>
@@ -129,15 +184,27 @@
                 <li class="step-item">
                     <div class="step-number">3</div>
                     <div class="step-content">
-                        <h3>Tạo API Token cho R2</h3>
-                        <p>
+                        <h3 lang="vi">Tạo API Token cho R2</h3>
+                        <h3 lang="en">Create an R2 API Token</h3>
+                        
+                        <p lang="vi">
                             Bấm vào liên kết <strong>Manage R2 API Tokens</strong> nằm ở bên phải trang R2. Chọn <strong>Create API Token</strong> và cấu hình như sau:
                         </p>
-                        <p style="margin-top: 6px;">
+                        <p lang="en">
+                            Click on the <strong>Manage R2 API Tokens</strong> link on the right of the R2 page. Select <strong>Create API Token</strong> and configure it as follows:
+                        </p>
+                        
+                        <p style="margin-top: 6px;" lang="vi">
                             • <strong>Token name:</strong> Đặt tên gợi nhớ (ví dụ: <code>vnkey-token</code>).<br>
                             • <strong>Permissions:</strong> Chọn quyền <strong>Object Read & Write</strong> (hoặc Admin Read & Write).<br>
                             • <strong>Bucket scoping:</strong> Chọn <strong>Apply to specific buckets only</strong> và chọn đúng bucket vừa tạo ở bước 1 để tăng độ bảo mật.<br>
                             Nhấn <strong>Create API Token</strong> để hoàn tất.
+                        </p>
+                        <p style="margin-top: 6px;" lang="en">
+                            • <strong>Token name:</strong> Set a memorable name (e.g., <code>vnkey-token</code>).<br>
+                            • <strong>Permissions:</strong> Choose <strong>Object Read & Write</strong> (or Admin Read & Write).<br>
+                            • <strong>Bucket scoping:</strong> Choose <strong>Apply to specific buckets only</strong> and select the bucket you created in Step 1 to improve security.<br>
+                            Click <strong>Create API Token</strong> to complete.
                         </p>
                     </div>
                 </li>
@@ -146,13 +213,23 @@
                 <li class="step-item">
                     <div class="step-number">4</div>
                     <div class="step-content">
-                        <h3>Lưu Access Key ID & Secret Access Key</h3>
-                        <p>
+                        <h3 lang="vi">Lưu Access Key ID & Secret Access Key</h3>
+                        <h3 lang="en">Save Access Key ID & Secret Access Key</h3>
+                        
+                        <p lang="vi">
                             Sau khi tạo token thành công, Cloudflare sẽ hiển thị các thông tin quan trọng một lần duy nhất. Hãy lưu lại:
                         </p>
-                        <div class="code-block">
+                        <p lang="en">
+                            Upon successful token creation, Cloudflare will display these credentials only once. Make sure to copy and save them:
+                        </p>
+                        
+                        <div class="code-block" lang="vi">
 Access Key ID: <chuỗi_key_của_bạn>
 Secret Access Key: <chuỗi_secret_của_bạn>
+                        </div>
+                        <div class="code-block" lang="en">
+Access Key ID: <your_access_key_id>
+Secret Access Key: <your_secret_access_key>
                         </div>
                     </div>
                 </li>
@@ -161,19 +238,36 @@ Secret Access Key: <chuỗi_secret_của_bạn>
                 <li class="step-item">
                     <div class="step-number">5</div>
                     <div class="step-content">
-                        <h3>Nhập cấu hình vào ứng dụng VNKey</h3>
-                        <p>
+                        <h3 lang="vi">Nhập cấu hình vào ứng dụng VNKey</h3>
+                        <h3 lang="en">Enter configuration details in VNKey</h3>
+                        
+                        <p lang="vi">
                             Mở ứng dụng <strong>VNKey</strong> > Vào phần <strong>Đồng bộ Cloud</strong> > Chọn thẻ lưu trữ là <strong>Cloudflare R2</strong>.
                             Tiến hành điền 4 thông tin đã lấy được bao gồm:
                         </p>
-                        <p style="margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--accent-color);">
+                        <p lang="en">
+                            Open the <strong>VNKey</strong> application > Go to <strong>Cloud Sync</strong> > Select <strong>Cloudflare R2</strong> storage tab.
+                            Fill in the 4 items you retrieved:
+                        </p>
+                        
+                        <p style="margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--accent-color);" lang="vi">
                             1. <strong>Account ID</strong> (Từ bước 2)<br>
                             2. <strong>Access Key ID</strong> (Từ bước 4)<br>
                             3. <strong>Secret Access Key</strong> (Từ bước 4)<br>
                             4. <strong>Bucket Name</strong> (Tên bucket ở bước 1, ví dụ: <code>vnkey-sync</code>)
                         </p>
-                        <p style="margin-top: 8px;">
+                        <p style="margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--accent-color);" lang="en">
+                            1. <strong>Account ID</strong> (From Step 2)<br>
+                            2. <strong>Access Key ID</strong> (From Step 4)<br>
+                            3. <strong>Secret Access Key</strong> (From Step 4)<br>
+                            4. <strong>Bucket Name</strong> (The name of the bucket from Step 1, e.g., <code>vnkey-sync</code>)
+                        </p>
+                        
+                        <p style="margin-top: 8px;" lang="vi">
                             Cuối cùng, thiết lập <strong>Mật khẩu mã hoá đồng bộ</strong> ở phía dưới (dùng để mã hoá dữ liệu trước khi gửi lên đám mây nhằm bảo mật an toàn thông tin) và nhấn <strong>Lưu cấu hình & Bật đồng bộ</strong>.
+                        </p>
+                        <p style="margin-top: 8px;" lang="en">
+                            Finally, set the <strong>Sync Encryption Password</strong> below (used to encrypt data on your device before uploading to ensure absolute security) and click <strong>Save Config & Enable Sync</strong>.
                         </p>
                     </div>
                 </li>
@@ -185,9 +279,45 @@ Secret Access Key: <chuỗi_secret_của_bạn>
     <footer>
         <div class="container" style="text-align: center;">
             <div class="copyright">
-                &copy; 2026 VNKey Project. Phát triển bởi <strong>Hồ Quang Thái</strong> và cộng đồng mã nguồn mở.
+                <span lang="vi">&copy; 2026 VNKey Project. Phát triển bởi <strong>Hồ Quang Thái</strong> và cộng đồng mã nguồn mở.</span>
+                <span lang="en">&copy; 2026 VNKey Project. Developed by <strong>Ho Quang Thai</strong> and the open-source community.</span>
             </div>
         </div>
     </footer>
+
+    <script>
+        const pageTitles = {
+            vi: "Hướng dẫn cấu hình Cloudflare R2 - VNKey",
+            en: "Cloudflare R2 Configuration Guide - VNKey"
+        };
+
+        function setLanguage(lang) {
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem('vnkey-lang', lang);
+            
+            document.title = pageTitles[lang];
+
+            // Sync active state of buttons
+            document.querySelectorAll('.lang-switcher .lang-btn').forEach(btn => {
+                if (btn.getAttribute('data-lang') === lang) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Initialize language
+        const initialLang = localStorage.getItem('vnkey-lang') || 'vi';
+        setLanguage(initialLang);
+
+        // Bind events
+        document.querySelectorAll('.lang-switcher .lang-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetLang = e.target.getAttribute('data-lang');
+                setLanguage(targetLang);
+            });
+        });
+    </script>
 </body>
 </html>

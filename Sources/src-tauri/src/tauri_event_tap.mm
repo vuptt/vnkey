@@ -312,7 +312,7 @@ extern "C" {
         _languageTemp = getAppInputMethodStatus(string(_frontMostApp.UTF8String), vLanguage | (vCodeTable << 1));
         if ((_languageTemp & 0x01) != vLanguage) { //for input method
             if (_languageTemp != -1) {
-                vLanguage = _languageTemp;
+                vLanguage = _languageTemp & 0x01;
                 rust_onInputMethodChanged(vLanguage);
                 startNewSession();
             } else {

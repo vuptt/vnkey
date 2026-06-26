@@ -108,9 +108,10 @@ VNKey là dự án mã nguồn mở hoàn toàn miễn phí và phi lợi nhuậ
 
 Nếu bạn yêu thích VNKey và muốn gửi tặng một tách cà phê, bạn có thể ủng hộ qua các hình thức sau:
 
-* **Ví MoMo:** (Thêm link ảnh QR của bạn tại đây)
-* **Paypal:** (Thêm link Paypal của bạn tại đây)
-* **Buy Me A Coffee:** (Thêm link ủng hộ của bạn tại đây)
+* **Ví MoMo:** Quét mã QR MoMo dưới đây:
+
+  ![MoMo Donation](Web/assets/img/momo_donation.jpg)
+* **Paypal:** [https://paypal.me/hqthai](https://paypal.me/hqthai)
 
 Chân thành cảm ơn sự ủng hộ và tin dùng của các bạn!
 

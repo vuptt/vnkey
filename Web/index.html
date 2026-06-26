@@ -3,43 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VNKey - Bộ gõ tiếng Việt hiện đại, mã nguồn mở</title>
-    <meta name="description" content="VNKey là bộ gõ tiếng Việt gọn nhẹ, đa nền tảng được phát triển bằng Tauri 2, Rust và Svelte 5. Khắc phục hoàn toàn lỗi gạch chân khó chịu trên macOS.">
+    <title id="site-title">VNKey - Bộ gõ tiếng Việt hiện đại, mã nguồn mở</title>
+    <meta id="site-description" name="description" content="VNKey là bộ gõ tiếng Việt gọn nhẹ, đa nền tảng được phát triển bằng Tauri 2, Rust và Svelte 5. Khắc phục hoàn toàn lỗi gạch chân khó chịu trên macOS.">
     <link rel="stylesheet" href="style.css">
+    <script>
+        // Immediately set the language to avoid flashing
+        const savedLang = localStorage.getItem('vnkey-lang') || 'vi';
+        document.documentElement.setAttribute('lang', savedLang);
+    </script>
 </head>
 <body>
     <!-- Navigation -->
     <nav id="navbar">
         <div class="container nav-container">
             <a href="#" class="logo-wrapper">
-                <div class="logo-icon">V</div>
+                <img src="assets/img/Logo.svg" alt="VNKey Logo" class="logo-img">
                 <div class="brand-name">VN<span>Key</span></div>
             </a>
             <ul class="nav-links">
-                <li><a href="#features">Tính năng</a></li>
-                <li><a href="#simulator">Trải nghiệm</a></li>
-                <li><a href="#cloud">Đồng bộ Cloud</a></li>
-                <li><a href="https://github.com/hoquangthaiholy/vnkey" target="_blank" id="nav-github-link">Mã nguồn</a></li>
-                <li><a href="auth.html" class="btn btn-secondary" id="nav-auth-btn">Cổng Xác Thực Google</a></li>
+                <li><a href="#features"><span lang="vi">Tính năng</span><span lang="en">Features</span></a></li>
+                <li><a href="#simulator"><span lang="vi">Trải nghiệm</span><span lang="en">Try VNKey</span></a></li>
+                <li><a href="#cloud"><span lang="vi">Đồng bộ Cloud</span><span lang="en">Cloud Sync</span></a></li>
+                <li><a href="#donation"><span lang="vi">Ủng hộ</span><span lang="en">Donate</span></a></li>
+                <li><a href="https://github.com/hoquangthaiholy/vnkey" target="_blank" id="nav-github-link"><span lang="vi">Mã nguồn</span><span lang="en">Source Code</span></a></li>
+                <li class="lang-switcher">
+                    <button class="lang-btn" data-lang="vi">VI</button>
+                    <span class="lang-divider">|</span>
+                    <button class="lang-btn" data-lang="en">EN</button>
+                </li>
             </ul>
         </div>
     </nav>
 
     <!-- Hero Section -->
     <section class="hero">
+        <div class="parallax-hero-bg"></div>
+        <div class="hero-fade-overlay"></div>
         <div class="container hero-content">
-            <span class="badge">Phiên bản mới nhất v2.0 - Mã nguồn mở</span>
-            <h1 class="hero-title">Bộ gõ tiếng Việt gọn nhẹ,<br><span>Không lỗi gạch chân macOS</span></h1>
-            <p class="hero-description">
+            <span class="badge" lang="vi">Phiên bản mới nhất v1.0 beta - Mã nguồn mở</span>
+            <span class="badge" lang="en">Latest version v1.0 beta - Open Source</span>
+            
+            <h1 class="hero-title" lang="vi">Bộ gõ tiếng Việt gọn nhẹ,<br><span>Không lỗi gạch chân macOS</span></h1>
+            <h1 class="hero-title" lang="en">Lightweight Vietnamese Typing,<br><span>No macOS Underline Bug</span></h1>
+            
+            <p class="hero-description" lang="vi">
                 Được xây dựng trên nền tảng công nghệ hiện đại <strong>Tauri 2</strong>, <strong>Rust</strong> và <strong>Svelte 5</strong>. 
                 VNKey loại bỏ hoàn toàn lỗi gạch chân khó chịu trên macOS nhờ kỹ thuật Backspace thông minh, 
                 mang lại tốc độ và độ an toàn tuyệt đối.
             </p>
+            <p class="hero-description" lang="en">
+                Built on a modern technology stack of <strong>Tauri 2</strong>, <strong>Rust</strong>, and <strong>Svelte 5</strong>. 
+                VNKey completely eliminates the annoying underline issue on macOS with its smart Backspace technique, 
+                ensuring top speed and absolute security.
+            </p>
+            
             <div class="hero-actions">
                 <a href="https://github.com/hoquangthaiholy/vnkey/releases/latest" class="btn btn-primary" id="hero-download-btn">
-                    Tải về cho máy tính
+                    <span lang="vi">Tải về cho máy tính</span>
+                    <span lang="en">Download for Desktop</span>
                 </a>
-                <a href="#features" class="btn btn-secondary">Tìm hiểu tính năng</a>
+                <a href="#features" class="btn btn-secondary">
+                    <span lang="vi">Tìm hiểu tính năng</span>
+                    <span lang="en">Explore Features</span>
+                </a>
+            </div>
+            
+            <div class="hero-brew-install">
+                <span>
+                    <span lang="vi">Hoặc cài đặt qua Homebrew:</span>
+                    <span lang="en">Or install via Homebrew:</span>
+                </span>
+                <code>brew install --cask vnkey</code>
             </div>
         </div>
     </section>
@@ -48,8 +82,10 @@
     <section id="simulator" class="simulator-section">
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title">Trải nghiệm gõ phím mượt mà</h2>
-                <p class="section-desc">Hãy thử gõ tiếng Việt hoặc viết code bên dưới để cảm nhận sự mượt mà của thuật toán xử lý phím thông minh.</p>
+                <h2 class="section-title" lang="vi">Trải nghiệm gõ phím mượt mà</h2>
+                <h2 class="section-title" lang="en">Experience Smooth Typing</h2>
+                <p class="section-desc" lang="vi">Hãy thử gõ tiếng Việt hoặc viết code bên dưới để cảm nhận sự mượt mà của thuật toán xử lý phím thông minh.</p>
+                <p class="section-desc" lang="en">Try typing Vietnamese or writing code below to experience the smoothness of our smart key processing engine.</p>
             </div>
             <div class="simulator-card glass-panel">
                 <div class="simulator-header">
@@ -58,14 +94,25 @@
                         <div class="dot dot-yellow"></div>
                         <div class="dot dot-green"></div>
                     </div>
-                    <div class="simulator-title" id="simulator-status">VNKey Engine: Đang kích hoạt</div>
+                    <div class="simulator-title" id="simulator-status">
+                        <span lang="vi">VNKey Engine: Đang kích hoạt</span>
+                        <span lang="en">VNKey Engine: Active</span>
+                    </div>
                 </div>
                 <div class="simulator-body">
-                    <textarea class="simulator-input" id="sim-input" placeholder="Hãy thử nhập: 'statú' để xem kiểm tra chính tả khôi phục về 'status', hoặc viết một đoạn code camelCase..."></textarea>
+                    <textarea class="simulator-input" id="sim-input" 
+                        data-placeholder-vi="Hãy thử nhập: 'statú' để xem kiểm tra chính tả khôi phục về 'status', hoặc viết một đoạn code camelCase..."
+                        data-placeholder-en="Try typing: 'statú' to see spellcheck restore it to 'status', or write a camelCase variable name..."></textarea>
                 </div>
                 <div class="simulator-tips">
-                    <span id="sim-word-count">Số từ: 0</span>
-                    <span>Hỗ trợ: Telex, VNI & Tự khôi phục lỗi</span>
+                    <span id="sim-word-count">
+                        <span lang="vi">Số từ: 0</span>
+                        <span lang="en">Word count: 0</span>
+                    </span>
+                    <span>
+                        <span lang="vi">Hỗ trợ: Telex, VNI & Tự khôi phục lỗi</span>
+                        <span lang="en">Supports: Telex, VNI & Auto-error recovery</span>
+                    </span>
                 </div>
             </div>
         </div>
@@ -75,45 +122,239 @@
     <section id="features" class="features">
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title">Tính năng nổi bật</h2>
-                <p class="section-desc">Đầy đủ các công cụ mạnh mẽ hỗ trợ tối đa cho nhu cầu gõ văn bản và lập trình mỗi ngày.</p>
+                <h2 class="section-title" lang="vi">Tính năng nổi bật</h2>
+                <h2 class="section-title" lang="en">Key Features</h2>
+                <p class="section-desc" lang="vi">Đầy đủ các công cụ mạnh mẽ hỗ trợ tối đa cho nhu cầu gõ văn bản và lập trình mỗi ngày.</p>
+                <p class="section-desc" lang="en">A full suite of powerful tools designed to optimize your daily typing and coding workflow.</p>
             </div>
             <div class="features-grid">
                 <!-- Feature 1 -->
                 <div class="feature-card glass-panel">
-                    <div class="feature-icon">✨</div>
-                    <h3>Khắc phục lỗi macOS</h3>
-                    <p>Sử dụng kỹ thuật Backspace thông minh loại bỏ hoàn toàn lỗi gạch chân/trùng ký tự khó chịu trên macOS của bộ gõ mặc định.</p>
+                    <div class="feature-icon mac-fix">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                            <path d="M9 10l2 2 4-4"></path>
+                        </svg>
+                    </div>
+                    <h3 lang="vi">Khắc phục lỗi macOS</h3>
+                    <h3 lang="en">Fix macOS Underline Bug</h3>
+                    <p lang="vi">Sử dụng kỹ thuật Backspace thông minh loại bỏ hoàn toàn lỗi gạch chân/trùng ký tự khó chịu trên macOS của bộ gõ mặc định.</p>
+                    <p lang="en">Employs smart backspacing to completely eliminate the annoying underline and character duplication bugs found in macOS's default input method.</p>
                 </div>
                 <!-- Feature 2 -->
                 <div class="feature-card glass-panel">
-                    <div class="feature-icon">🔍</div>
-                    <h3>Kiểm tra chính tả thông minh</h3>
-                    <p>Phát hiện lỗi sai quy tắc âm tiết tiếng Việt để tự động khôi phục phím gốc hoặc dừng gõ dấu sai vị trí.</p>
+                    <div class="feature-icon spellcheck">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            <path d="M8 11l2 2 4-4"></path>
+                        </svg>
+                    </div>
+                    <h3 lang="vi">Kiểm tra chính tả thông minh</h3>
+                    <h3 lang="en">Smart Spellcheck</h3>
+                    <p lang="vi">Phát hiện lỗi sai quy tắc âm tiết tiếng Việt để tự động khôi phục phím gốc hoặc dừng gõ dấu sai vị trí.</p>
+                    <p lang="en">Detects Vietnamese syllable rule violations to automatically restore original keys or prevent placing accents in wrong positions.</p>
                 </div>
                 <!-- Feature 3 -->
                 <div class="feature-card glass-panel">
-                    <div class="feature-icon">💻</div>
-                    <h3>Tối ưu hóa Lập trình</h3>
-                    <p>Bỏ qua kiểm tra chính tả cho từ khóa cú pháp (if, for, while) và các cấu trúc đặt tên biến camelCase, snake_case, ALL_CAPS.</p>
+                    <div class="feature-icon coding">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 18 22 12 16 6"></polyline>
+                            <polyline points="8 6 2 12 8 18"></polyline>
+                        </svg>
+                    </div>
+                    <h3 lang="vi">Tối ưu hóa Lập trình</h3>
+                    <h3 lang="en">Optimized for Coding</h3>
+                    <p lang="vi">Bỏ qua kiểm tra chính tả cho từ khóa cú pháp (if, for, while) và các cấu trúc đặt tên biến camelCase, snake_case, ALL_CAPS.</p>
+                    <p lang="en">Automatically bypasses spellcheck for syntax keywords (if, for, while) and variable styles like camelCase, snake_case, or ALL_CAPS.</p>
                 </div>
                 <!-- Feature 4 -->
                 <div class="feature-card glass-panel">
-                    <div class="feature-icon">🗂️</div>
-                    <h3>Quản lý Clipboard</h3>
-                    <p>Lưu trữ lịch sử sao chép (văn bản, hình ảnh, liên kết) và truy xuất cực nhanh bằng phím tắt ngay tại con trỏ chuột.</p>
+                    <div class="feature-icon clipboard">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                        </svg>
+                    </div>
+                    <h3 lang="vi">Quản lý Clipboard</h3>
+                    <h3 lang="en">Clipboard Manager</h3>
+                    <p lang="vi">Lưu trữ lịch sử sao chép (văn bản, hình ảnh, liên kết) và truy xuất cực nhanh bằng phím tắt ngay tại con trỏ chuột.</p>
+                    <p lang="en">Stores copying history (text, images, links) and allows fast retrieval using a shortcut right at your cursor position.</p>
                 </div>
                 <!-- Feature 5 -->
                 <div class="feature-card glass-panel">
-                    <div class="feature-icon">⚙️</div>
-                    <h3>Phím tắt & Macro</h3>
-                    <p>Quản lý các cụm từ viết tắt dễ dàng, hỗ trợ tự động viết hoa (Auto Caps) và viết tắt thông minh trong chế độ tiếng Anh.</p>
+                    <div class="feature-icon macro">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                    </div>
+                    <h3 lang="vi">Phím tắt & Macro</h3>
+                    <h3 lang="en">Shortcuts & Macros</h3>
+                    <p lang="vi">Quản lý các cụm từ viết tắt dễ dàng, hỗ trợ tự động viết hoa (Auto Caps) và viết tắt thông minh trong chế độ tiếng Anh.</p>
+                    <p lang="en">Manage text expansions easily, featuring automatic capitalization (Auto Caps) and smart abbreviations in English mode.</p>
                 </div>
                 <!-- Feature 6 -->
                 <div class="feature-card glass-panel">
-                    <div class="feature-icon">🔄</div>
-                    <h3>Nhớ chế độ theo App</h3>
-                    <p>Tự động chuyển chế độ Anh/Việt hoặc bảng mã cũ (VNI, TCVN3) tương ứng khi chuyển đổi qua lại giữa các cửa sổ ứng dụng.</p>
+                    <div class="feature-icon app-mode">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="3" x2="9" y2="21"></line>
+                            <path d="M14 9l3 3-3 3"></path>
+                        </svg>
+                    </div>
+                    <h3 lang="vi">Nhớ chế độ theo App</h3>
+                    <h3 lang="en">App-Specific Modes</h3>
+                    <p lang="vi">Tự động chuyển chế độ Anh/Việt hoặc bảng mã cũ (VNI, TCVN3) tương ứng khi chuyển đổi qua lại giữa các cửa sổ ứng dụng.</p>
+                    <p lang="en">Automatically switches between English/Vietnamese typing modes or legacy encodings (VNI, TCVN3) when toggling between active applications.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Deep Dive Tech Explanations -->
+    <section id="tech-details" class="deep-dive">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title" lang="vi">Đi sâu vào công nghệ</h2>
+                <h2 class="section-title" lang="en">Deep Dive into Tech</h2>
+                <p class="section-desc" lang="vi">Khám phá cách VNKey giải quyết triệt để các vấn đề của bộ gõ truyền thống bằng giải pháp kỹ thuật tối ưu.</p>
+                <p class="section-desc" lang="en">Explore how VNKey tackles the fundamental limitations of legacy input methods with optimized engineering.</p>
+            </div>
+
+            <!-- Deep Dive Item 1: Backspace macOS -->
+            <div class="deep-dive-item">
+                <div class="deep-dive-text">
+                    <h3 lang="vi">Kỹ thuật Backspace thông minh</h3>
+                    <h3 lang="en">Smart Backspace Technique</h3>
+                    <p lang="vi">
+                        Khắc phục triệt để lỗi gạch chân khó chịu và nhân đôi ký tự trên macOS. Engine của VNKey theo dõi các phím vừa nhấn và giả lập sự kiện Backspace chính xác để xóa ký tự trung gian trước khi chèn ký tự có dấu mới.
+                    </p>
+                    <p lang="en">
+                        Completely fixes the annoying underline bug and duplicated characters on macOS. VNKey's engine monitors keystrokes and simulates precise Backspace events to erase intermediate characters before inserting the newly accented character.
+                    </p>
+                    <div class="deep-dive-tech-tags" lang="vi">
+                        <span class="tech-tag">macOS API</span>
+                        <span class="tech-tag">Đánh chặn sự kiện phím</span>
+                        <span class="tech-tag">Giả lập phím Backspace</span>
+                    </div>
+                    <div class="deep-dive-tech-tags" lang="en">
+                        <span class="tech-tag">macOS API</span>
+                        <span class="tech-tag">Event Interception</span>
+                        <span class="tech-tag">Backspace Emulation</span>
+                    </div>
+                </div>
+                <div class="deep-dive-visual">
+                    <img src="assets/img/img_typing.png" alt="Kỹ thuật xử lý gõ phím VNKey" class="feature-screenshot shadowed">
+                </div>
+            </div>
+
+            <!-- Deep Dive Item 2: Coding Mode -->
+            <div class="deep-dive-item">
+                <div class="deep-dive-text">
+                    <h3 lang="vi">Tối ưu hóa cho lập trình viên</h3>
+                    <h3 lang="en">Optimized for Developers</h3>
+                    <p lang="vi">
+                        Tự động nhận diện các cú pháp lập trình như `camelCase`, `snake_case`, `ALL_CAPS` hoặc các từ khóa code để bỏ qua kiểm tra chính tả. Bạn có thể viết mã nguồn và chat tiếng Việt song song mà không cần chuyển đổi bộ gõ liên tục.
+                    </p>
+                    <p lang="en">
+                        Automatically detects programming syntaxes such as `camelCase`, `snake_case`, `ALL_CAPS` or code keywords to bypass spelling verification. You can write code and chat in Vietnamese simultaneously without constant switcher toggling.
+                    </p>
+                    <div class="deep-dive-tech-tags" lang="vi">
+                        <span class="tech-tag">Chế độ Lập trình</span>
+                        <span class="tech-tag">Nhận diện CamelCase</span>
+                        <span class="tech-tag">Bỏ qua cú pháp thông minh</span>
+                    </div>
+                    <div class="deep-dive-tech-tags" lang="en">
+                        <span class="tech-tag">Programming Mode</span>
+                        <span class="tech-tag">CamelCase Detection</span>
+                        <span class="tech-tag">Syntax Smart Bypass</span>
+                    </div>
+                </div>
+                <div class="deep-dive-visual">
+                    <img src="assets/img/img_settings.png" alt="Cấu hình chế độ lập trình" class="feature-screenshot">
+                </div>
+            </div>
+
+            <!-- Deep Dive Item 3: Clipboard Manager -->
+            <div class="deep-dive-item">
+                <div class="deep-dive-text">
+                    <h3 lang="vi">Bảng ghi nhớ & Quản lý Clipboard</h3>
+                    <h3 lang="en">Clipboard History & Manager</h3>
+                    <p lang="vi">
+                        Lưu trữ lịch sử sao chép đa phương tiện (văn bản, hình ảnh, liên kết). Chỉ cần nhấn phím tắt, menu popover gọn nhẹ sẽ xuất hiện ngay tại con trỏ chuột để bạn tìm kiếm và dán nhanh dữ liệu cũ.
+                    </p>
+                    <p lang="en">
+                        Stores rich-media clipboard history (text, images, and links). Simply press the hotkey, and a lightweight popover menu appears directly at your cursor location for fast searching and pasting.
+                    </p>
+                    <div class="deep-dive-tech-tags" lang="vi">
+                        <span class="tech-tag">Lịch sử Clipboard</span>
+                        <span class="tech-tag">Tìm kiếm nhanh</span>
+                        <span class="tech-tag">Bảng ghim tại con trỏ</span>
+                    </div>
+                    <div class="deep-dive-tech-tags" lang="en">
+                        <span class="tech-tag">Clipboard History</span>
+                        <span class="tech-tag">Quick Search</span>
+                        <span class="tech-tag">Active Cursor Popover</span>
+                    </div>
+                </div>
+                <div class="deep-dive-visual">
+                    <img src="assets/img/img_clipboard.png" alt="Quản lý clipboard VNKey" class="feature-screenshot">
+                </div>
+            </div>
+
+            <!-- Deep Dive Item 4: Per-App Configuration -->
+            <div class="deep-dive-item">
+                <div class="deep-dive-text">
+                    <h3 lang="vi">Nhớ chế độ theo từng Ứng dụng</h3>
+                    <h3 lang="en">Per-Application Settings</h3>
+                    <p lang="vi">
+                        Tự động thay đổi và khôi phục chế độ gõ (Anh/Việt) hoặc bảng mã tương ứng cho từng ứng dụng ngay khi chuyển đổi cửa sổ ứng dụng (Window Focus), tối ưu hóa trải nghiệm làm việc.
+                    </p>
+                    <p lang="en">
+                        Automatically saves and restores the typing mode (English/Vietnamese) or encoding for each specific application the moment window focus changes, streamlining your workflow.
+                    </p>
+                    <div class="deep-dive-tech-tags" lang="vi">
+                        <span class="tech-tag">Theo dõi Cửa sổ hoạt động</span>
+                        <span class="tech-tag">Cấu hình theo Tiến trình</span>
+                        <span class="tech-tag">Khôi phục chế độ Tự động</span>
+                    </div>
+                    <div class="deep-dive-tech-tags" lang="en">
+                        <span class="tech-tag">Active Window Tracking</span>
+                        <span class="tech-tag">Per-Process Settings</span>
+                        <span class="tech-tag">Auto Mode Restore</span>
+                    </div>
+                </div>
+                <div class="deep-dive-visual">
+                    <img src="assets/img/img_application.png" alt="Nhớ chế độ gõ theo từng ứng dụng" class="feature-screenshot shadowed">
+                </div>
+            </div>
+
+            <!-- Deep Dive Item 5: End-to-End Encrypted Cloud Sync -->
+            <div class="deep-dive-item">
+                <div class="deep-dive-text">
+                    <h3 lang="vi">Đồng bộ hóa & Bảo mật đầu cuối</h3>
+                    <h3 lang="en">Sync & End-to-End Security</h3>
+                    <p lang="vi">
+                        Đồng bộ cấu hình và dữ liệu gõ tắt qua Cloudflare R2 cá nhân. Toàn bộ dữ liệu được mã hóa AES-256 trực tiếp trên thiết bị của bạn trước khi tải lên, đảm bảo an toàn tuyệt đối.
+                    </p>
+                    <p lang="en">
+                        Sync your settings and macro expansions via your own Cloudflare R2. All data is encrypted with AES-256 directly on your device prior to uploading, guaranteeing absolute privacy.
+                    </p>
+                    <div class="deep-dive-tech-tags" lang="vi">
+                        <span class="tech-tag">Cloudflare R2</span>
+                        <span class="tech-tag">Mã hóa AES-256</span>
+                        <span class="tech-tag">Bảo mật E2EE</span>
+                    </div>
+                    <div class="deep-dive-tech-tags" lang="en">
+                        <span class="tech-tag">Cloudflare R2</span>
+                        <span class="tech-tag">AES-256 Encryption</span>
+                        <span class="tech-tag">E2EE Privacy</span>
+                    </div>
+                </div>
+                <div class="deep-dive-visual">
+                    <img src="assets/img/img_cloudsync.png" alt="Đồng bộ hóa đám mây bảo mật" class="feature-screenshot shadowed">
                 </div>
             </div>
         </div>
@@ -122,13 +363,67 @@
     <!-- Cloud Sync Connection CTA -->
     <section id="cloud" class="simulator-section" style="background: rgba(59, 130, 246, 0.02); border-top: 1px solid var(--border-glass);">
         <div class="container" style="text-align: center; max-width: 700px;">
-            <div class="feature-icon" style="margin: 0 auto 1.5rem auto;">☁️</div>
-            <h2 class="section-title">Đồng bộ dữ liệu đám mây</h2>
-            <p class="hero-description" style="font-size: 1.05rem; margin-bottom: 2rem;">
-                Đồng bộ cấu hình cài đặt, từ điển cá nhân, thư viện macro viết tắt và bảng ghi nhớ clipboard giữa các máy tính thông qua tài khoản Google Drive cá nhân của bạn.
+            <div class="feature-icon cloud" style="margin: 0 auto 1.5rem auto;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+                </svg>
+            </div>
+            <h2 class="section-title" lang="vi">Đồng bộ dữ liệu đám mây</h2>
+            <h2 class="section-title" lang="en">Cloud Data Synchronization</h2>
+            <p class="hero-description" style="font-size: 1.05rem; margin-bottom: 2rem;" lang="vi">
+                Đồng bộ cấu hình cài đặt, từ điển cá nhân, thư viện macro viết tắt và bảng ghi nhớ clipboard giữa các máy tính thông qua Cloudflare R2 của riêng bạn.
+            </p>
+            <p class="hero-description" style="font-size: 1.05rem; margin-bottom: 2rem;" lang="en">
+                Sync configuration settings, personal dictionaries, abbreviation macros, and clipboard history across multiple computers using your own Cloudflare R2 bucket.
             </p>
             <div style="display: flex; justify-content: center; gap: 1rem;">
-                <a href="auth.html" class="btn btn-primary" id="cta-auth-btn">Cấu hình đồng bộ qua Web App</a>
+                <a href="r2_guide.html" class="btn btn-primary" id="cta-r2-btn">
+                    <span lang="vi">Xem hướng dẫn cấu hình R2</span>
+                    <span lang="en">View Cloudflare R2 Setup Guide</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Donation Section -->
+    <section id="donation" class="donation-section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title" lang="vi">Ủng hộ dự án</h2>
+                <h2 class="section-title" lang="en">Support the Project</h2>
+                <p class="section-desc" lang="vi">VNKey là hoàn toàn miễn phí và mã nguồn mở. Mọi sự ủng hộ của bạn sẽ giúp duy trì và phát triển dự án tốt hơn.</p>
+                <p class="section-desc" lang="en">VNKey is completely free and open-source. Your support helps maintain and develop the project further.</p>
+            </div>
+            <div class="donation-grid">
+                <!-- MoMo Card -->
+                <div class="donation-card glass-panel">
+                    <div>
+                        <h3 lang="vi">Ví MoMo</h3>
+                        <h3 lang="en">MoMo Wallet</h3>
+                        <p lang="vi">Quét mã QR bằng ứng dụng MoMo để ủng hộ trực tiếp.</p>
+                        <p lang="en">Scan the QR code with the MoMo app to donate directly.</p>
+                    </div>
+                    <img src="assets/img/momo_donation.jpg" alt="MoMo QR Code" class="momo-qr">
+                    <span class="badge" style="margin-bottom: 0;">Hồ Quang Thái</span>
+                </div>
+                <!-- PayPal Card -->
+                <div class="donation-card glass-panel">
+                    <div>
+                        <h3 lang="vi">PayPal</h3>
+                        <h3 lang="en">PayPal</h3>
+                        <p lang="vi">Ủng hộ qua tài khoản PayPal quốc tế nhanh chóng.</p>
+                        <p lang="en">Donate quickly using your international PayPal account.</p>
+                    </div>
+                    <div style="margin: 2rem 0;">
+                        <svg class="feature-icon" style="margin: 0 auto; width: 60px; height: 60px; font-size: 2rem;" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.007 8.424c.007-.076.012-.152.012-.228 0-3.328-2.607-6.033-5.83-6.033h-7.14c-.696 0-1.296.48-1.428 1.156l-3.238 16.482c-.083.428.25.823.685.823h4.636l-.004.024 1.139-5.79.034-.207a1.442 1.442 0 0 1 1.417-1.158h1.22c3.738 0 6.643-2.186 7.497-5.099zm-4.397.026c-.463 1.579-1.996 2.766-3.834 2.766h-1.638l1.09-5.55h1.638c1.838 0 3.371 1.187 3.834 2.766.113.385.122.77.108 1.155-.027.327-.087.643-.198.863z"/>
+                        </svg>
+                    </div>
+                    <a href="https://paypal.me/hqthai" target="_blank" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                        <span lang="vi">Đóng góp qua PayPal</span>
+                        <span lang="en">Donate with PayPal</span>
+                    </a>
+                </div>
             </div>
         </div>
     </section>
@@ -138,51 +433,153 @@
         <div class="container">
             <div class="footer-content">
                 <a href="#" class="logo-wrapper">
-                    <div class="logo-icon">V</div>
+                    <img src="assets/img/Logo.svg" alt="VNKey Logo" class="logo-img">
                     <div class="brand-name">VN<span>Key</span></div>
                 </a>
                 <div class="copyright">
-                    &copy; 2026 VNKey Project. Phát triển bởi <strong>Hồ Quang Thái</strong> và cộng đồng mã nguồn mở.
+                    <span lang="vi">&copy; 2026 VNKey Project. Phát triển bởi <strong>Hồ Quang Thái</strong> và cộng đồng mã nguồn mở.</span>
+                    <span lang="en">&copy; 2026 VNKey Project. Developed by <strong>Ho Quang Thai</strong> and the open-source community.</span>
                 </div>
                 <ul class="footer-links">
                     <li><a href="https://github.com/hoquangthaiholy/vnkey" target="_blank">Github</a></li>
-                    <li><a href="https://github.com/hoquangthaiholy/vnkey/issues" target="_blank">Báo lỗi</a></li>
+                    <li>
+                        <a href="https://github.com/hoquangthaiholy/vnkey/issues" target="_blank">
+                            <span lang="vi">Báo lỗi</span>
+                            <span lang="en">Report issues</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
     </footer>
 
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.34/dist/lenis.min.js"></script>
     <script>
-        // Simple scroll indicator
-        window.addEventListener('scroll', () => {
-            const nav = document.getElementById('navbar');
-            if (window.scrollY > 50) {
+        // Language Switcher Javascript Logic
+        const siteTitles = {
+            vi: "VNKey - Bộ gõ tiếng Việt hiện đại, mã nguồn mở",
+            en: "VNKey - Modern Open-Source Vietnamese Input Method"
+        };
+        const siteDescriptions = {
+            vi: "VNKey là bộ gõ tiếng Việt gọn nhẹ, đa nền tảng được phát triển bằng Tauri 2, Rust và Svelte 5. Khắc phục hoàn toàn lỗi gạch chân khó chịu trên macOS.",
+            en: "VNKey is a lightweight, cross-platform Vietnamese input method built with Tauri 2, Rust, and Svelte 5. Completely fixes the annoying macOS underline bug."
+        };
+
+        function setLanguage(lang) {
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem('vnkey-lang', lang);
+            
+            // Update page metadata
+            document.title = siteTitles[lang];
+            const metaDesc = document.querySelector('meta[name="description"]');
+            if (metaDesc) {
+                metaDesc.setAttribute('content', siteDescriptions[lang]);
+            }
+            
+            // Update input placeholders
+            const simInput = document.getElementById('sim-input');
+            if (simInput) {
+                simInput.placeholder = simInput.getAttribute(`data-placeholder-${lang}`);
+            }
+
+            // Sync active state of language switcher buttons
+            document.querySelectorAll('.lang-switcher .lang-btn').forEach(btn => {
+                if (btn.getAttribute('data-lang') === lang) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Initialize language
+        const initialLang = localStorage.getItem('vnkey-lang') || 'vi';
+        setLanguage(initialLang);
+
+        // Bind events to language buttons
+        document.querySelectorAll('.lang-switcher .lang-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetLang = e.target.getAttribute('data-lang');
+                setLanguage(targetLang);
+            });
+        });
+
+        // Initialize Lenis for smooth scrolling
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smoothWheel: true
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // Simple scroll indicator & Parallax effect
+        const nav = document.getElementById('navbar');
+        const heroBg = document.querySelector('.parallax-hero-bg');
+        
+        lenis.on('scroll', (e) => {
+            if (e.scroll > 50) {
                 nav.classList.add('scrolled');
             } else {
                 nav.classList.remove('scrolled');
             }
+            
+            // Parallax effect for hero keyboard drafting background
+            if (heroBg && e.scroll < window.innerHeight) {
+                heroBg.style.transform = `translateY(${e.scroll * 0.15}px)`;
+            }
+        });
+
+        // Intercept anchor link clicks for Lenis smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    lenis.scrollTo(target);
+                }
+            });
         });
 
         // Simple interactive demo
         const textarea = document.getElementById('sim-input');
         const wordCount = document.getElementById('sim-word-count');
+        
         textarea.addEventListener('input', (e) => {
             let text = e.target.value;
+            const currentLang = document.documentElement.getAttribute('lang') || 'vi';
+
             // Simulated spellcheck correction: change 'statú' to 'status'
             if (text.toLowerCase().includes('statú')) {
                 text = text.replace(/statú/gi, 'status');
                 e.target.value = text;
                 const status = document.getElementById('simulator-status');
-                status.innerText = "VNKey: Đã khôi phục 'statú' -> 'status'";
-                status.style.color = "var(--success-color)";
+                
+                if (currentLang === 'vi') {
+                    status.innerHTML = "<span style='color: var(--success-color)'>VNKey: Đã khôi phục 'statú' -> 'status'</span>";
+                } else {
+                    status.innerHTML = "<span style='color: var(--success-color)'>VNKey: Restored 'statú' -> 'status'</span>";
+                }
+                
                 setTimeout(() => {
-                    status.innerText = "VNKey Engine: Đang kích hoạt";
-                    status.style.color = "";
+                    if (currentLang === 'vi') {
+                        status.innerHTML = "<span>VNKey Engine: Đang kích hoạt</span>";
+                    } else {
+                        status.innerHTML = "<span>VNKey Engine: Active</span>";
+                    }
                 }, 3000);
             }
             
             const words = text.trim().split(/\s+/).filter(w => w.length > 0);
-            wordCount.innerText = `Số từ: ${words.length}`;
+            if (currentLang === 'vi') {
+                wordCount.innerHTML = `<span>Số từ: ${words.length}</span>`;
+            } else {
+                wordCount.innerHTML = `<span>Word count: ${words.length}</span>`;
+            }
         });
     </script>
 </body>
