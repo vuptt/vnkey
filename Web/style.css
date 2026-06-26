@@ -479,7 +479,7 @@ nav.scrolled {
 }
 
 .feature-icon.app-mode svg {
-    animation: idle-rotate-slow 20s linear infinite;
+    animation: idle-window-breathe 4s ease-in-out infinite;
 }
 
 .feature-icon.cloud svg {
@@ -550,13 +550,12 @@ nav.scrolled {
     }
 }
 
-@keyframes idle-rotate-slow {
-    0% {
-        transform: rotate(0deg);
+@keyframes idle-window-breathe {
+    0%, 100% {
+        transform: scale(1) translateY(0);
     }
-
-    100% {
-        transform: rotate(360deg);
+    50% {
+        transform: scale(1.03) translateY(-1px);
     }
 }
 
@@ -582,7 +581,7 @@ nav.scrolled {
 }
 
 .feature-card:hover .feature-icon.app-mode svg {
-    animation: mode-rotate 0.6s ease-in-out;
+    animation: window-switch 0.6s ease-in-out;
 }
 
 .simulator-section:hover .feature-icon.cloud svg {
@@ -659,13 +658,15 @@ nav.scrolled {
     }
 }
 
-@keyframes mode-rotate {
-    0% {
-        transform: rotate(0) scale(1.1);
+@keyframes window-switch {
+    0%, 100% {
+        transform: scale(1) translateX(0);
     }
-
-    100% {
-        transform: rotate(180deg) scale(1.1);
+    30% {
+        transform: scale(0.92) translateX(-2px);
+    }
+    70% {
+        transform: scale(1.1) translateX(2px);
     }
 }
 
