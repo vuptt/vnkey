@@ -1526,7 +1526,7 @@
             <div class="spell-section">
               <label class="toggle-container">
                 <span class="toggle-text font-bold" style="font-size:14.5px; display: inline-flex; align-items: center; gap: 10px;">
-                  <svelte:component this={VietnamFlag} size={20} />
+                  <VietnamFlag size={20} />
                   Kiểm tra chính tả tiếng Việt <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Kiểm tra chính tả tiếng Việt:</strong><br/>Theo dõi cấu trúc âm tiết tiếng Việt chuẩn hóa để hạn chế các trường hợp tự động chuyển đổi sai dấu."}>?</span>
                 </span>
                 <div class="switch">
@@ -1587,7 +1587,7 @@
             <div class="spell-section">
               <label class="toggle-container">
                 <span class="toggle-text font-bold" style="font-size:14.5px; display: inline-flex; align-items: center; gap: 10px;">
-                  <svelte:component this={USFlag} size={20} />
+                  <USFlag size={20} />
                   Kiểm tra chính tả tiếng Anh <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Kiểm tra từ tiếng Anh:</strong><br/>Dùng luật cấu thành từ tiếng Anh và từ điển tùy chỉnh để giữ nguyên các từ tiếng Anh dễ bị Telex biến đổi thành chữ tiếng Việt."}>?</span>
                 </span>
                 <div class="switch">
@@ -1647,7 +1647,7 @@
             <div class="spell-section">
               <label class="toggle-container">
                 <span class="toggle-text font-bold" style="font-size:14.5px; display: inline-flex; align-items: center; gap: 10px;">
-                  <svelte:component this={ProgIcon} size={20} />
+                  <ProgIcon size={20} />
                   Kiểm tra chính tả lập trình <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Kiểm tra từ khóa lập trình:</strong><br/>Dùng luật nhận diện từ khóa lập trình phổ biến (<kbd>C++</kbd>, <kbd>Java</kbd>, <kbd>JS/TS</kbd>, <kbd>PHP</kbd>, <kbd>Python</kbd>, <kbd>Go</kbd>, <kbd>Rust</kbd>...) để giữ nguyên từ khi gõ code."}>?</span>
                 </span>
                 <div class="switch">
@@ -1721,6 +1721,7 @@
               onpointercancel={onFsmContainerPointerUp}
             >
               {#each fsmOrderedItems() as item, index (item.id)}
+                {@const FlagIcon = item.icon}
                 <div
                   class="fsm-order-item"
                   class:fsm-dragging={fsmDragIndex === index}
@@ -1732,7 +1733,7 @@
                   <span class="fsm-order-drag-handle" aria-hidden="true">⠿</span>
                   <span class="fsm-order-rank">{index + 1}</span>
                   <div class="fsm-order-emoji" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: 12px; color: var(--text-color);">
-                    <svelte:component this={item.icon} size={20} />
+                    <FlagIcon size={20} />
                   </div>
                   <div class="fsm-order-info">
                     <span class="fsm-order-name">{item.name}</span>
@@ -2301,7 +2302,7 @@
 
         {#if showResetModal}
           <div class="modal-overlay" transition:fade={{ duration: 150 }} role="dialog" aria-modal="true" aria-label="Xác nhận đặt lại thiết lập">
-            <div class="modal-content" transition:scale={{ duration: 180, start: 0.95 }} onclick={(e) => e.stopPropagation()}>
+            <div class="modal-content" transition:scale={{ duration: 180, start: 0.95 }} onclick={(e) => e.stopPropagation()} role="presentation">
               <h3>Xác nhận đặt lại thiết lập</h3>
               <p>Bạn có chắc chắn muốn đặt lại toàn bộ thiết lập về giá trị mặc định? Hành động này sẽ:</p>
               <ul>
@@ -2659,6 +2660,7 @@
                       onpointercancel={onAppFsmContainerPointerUp}
                     >
                       {#each appFsmOrderedItems() as item, index (item.id)}
+                        {@const FsmIcon = item.icon}
                         <div 
                           class="app-fsm-item"
                           class:fsm-dragging={appFsmDragIndex === index}
@@ -2669,7 +2671,7 @@
                           <span class="app-fsm-drag-handle" aria-hidden="true">⠿</span>
                           <span class="app-fsm-rank">{index + 1}</span>
                           <div class="app-fsm-icon">
-                            <svelte:component this={item.icon} size={15} />
+                            <FsmIcon size={15} />
                           </div>
                           <span class="app-fsm-name">{item.name}</span>
                           <span class="app-fsm-badge {
@@ -2771,7 +2773,7 @@
 
     {#if showMacroModal}
       <div class="modal-overlay" transition:fade={{ duration: 150 }} role="dialog" aria-modal="true" aria-label="Thêm hoặc sửa từ gõ tắt">
-        <div class="modal-content" transition:scale={{ duration: 180, start: 0.95 }} onclick={(e) => e.stopPropagation()} style="max-width: 500px;">
+        <div class="modal-content" transition:scale={{ duration: 180, start: 0.95 }} onclick={(e) => e.stopPropagation()} style="max-width: 500px;" role="presentation">
           <h3 style="margin-bottom: 20px;">{newShortcut && macrosList.some(m => m.shortcut === newShortcut) ? 'Chỉnh sửa từ gõ tắt' : 'Thêm từ gõ tắt mới'}</h3>
           
           <div style="margin-bottom: 15px;">
@@ -3337,8 +3339,7 @@
   }
 
   .form-group label,
-  .form-group > span:first-child,
-  .form-group .form-label {
+  .form-group > span:first-child {
     font-size: 12.5px;
     color: var(--text-secondary);
     font-weight: 500;
@@ -3665,91 +3666,7 @@
     }
   }
 
-  /* Macro form & list table */
-  .macro-form {
-    display: flex;
-    gap: 8px;
-  }
-
-  .macro-form input {
-    padding: 8px 12px;
-    border-radius: 6px;
-    background-color: var(--bg-input);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    outline: none;
-    font-size: 13px;
-  }
-
-  .macro-form input[type="text"]:first-child {
-    width: 150px;
-  }
-
-  .macro-form input[type="text"]:nth-child(2) {
-    flex-grow: 1;
-  }
-
-  .macro-search input {
-    width: 100%;
-    padding: 7px 12px;
-    border-radius: 6px;
-    background-color: var(--bg-input);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    outline: none;
-    font-size: 13px;
-    box-sizing: border-box;
-  }
-
-  .macro-list-container {
-    max-height: 250px;
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-  }
-
-  .macro-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  .macro-table th,
-  .macro-table td {
-    padding: 8px 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .macro-table th {
-    background-color: var(--bg-card);
-    color: var(--text-secondary);
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-
-  .macro-table tr:last-child td {
-    border-bottom: none;
-  }
-
-  .btn-delete {
-    background: none;
-    border: none;
-    color: #ff453a;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .btn-delete:hover {
-    text-decoration: underline;
-  }
-
-  .btn-delete:disabled {
-    opacity: 0.3;
-    pointer-events: none;
-  }
+  /* Macro form & list table styles removed (unused) */
 
   .error-text {
     color: #ff453a;
@@ -3854,13 +3771,10 @@
   /* Utility classes */
   .mt-5 { margin-top: 5px; }
   .mt-10 { margin-top: 10px; }
-  .mt-8  { margin-top: 8px; }
-  .mt-10 { margin-top: 10px; }
   .mt-15 { margin-top: 15px; }
   .mt-20 { margin-top: 20px; }
   .mb-15 { margin-bottom: 15px; }
   .mb-20 { margin-bottom: 20px; }
-  .pt-5 { padding-top: 5px; }
   .pt-15 { padding-top: 15px; }
   .font-bold { font-weight: bold; }
   .font-mono { font-family: monospace; }
@@ -3917,21 +3831,7 @@
     }
   }
 
-  .dict-editor-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 14px;
-    color: var(--text-primary);
-    font-weight: 600;
-  }
 
-  .dict-editor-header p {
-    margin: 4px 0 0;
-    font-size: 12px;
-    color: var(--color-accent);
-    font-weight: 500;
-  }
 
   .dict-toolbar,
   .dict-add-row {
@@ -4093,11 +3993,7 @@
     font-size: 12px;
   }
 
-  .dict-editor-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+
 
   .save-status {
     font-size: 12px;
@@ -4281,20 +4177,7 @@
     gap: 10px;
   }
 
-  /* ── FSM Priority Drag-and-Drop ─────────────────────────────────────── */
-  .fsm-priority-section {
-    margin-top: 4px;
-  }
 
-  .fsm-priority-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-  }
 
   .fsm-order-list {
     display: flex;
