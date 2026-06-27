@@ -102,6 +102,7 @@ static bool _useSpellCheckingBefore;
 static bool _hasHandleQuickConsonant;
 static bool _willTempOffEngine = false;
 static bool _liveProgrammingContext = false;
+static bool _isAllCapsLockActive = false;
 
 //function prototype
 void findAndCalculateVowel(const bool& forGrammar=false);
@@ -647,6 +648,7 @@ void startNewSession() {
     _hasHandleQuickConsonant = false;
     _longWordHelper.clear();
     _rawTyping.clear();
+    _isAllCapsLockActive = false;
 }
 
 void checkCorrectVowel(vector<vector<Uint16>>& charset, int& i, int& k, const Uint16& markKey) {
@@ -1424,6 +1426,32 @@ static bool restoreRawTyping(const int& handleCode, bool excludeLast = true) {
 }
 
 bool applyFsmRestorations(const int& handleCode) {
+    if (_rawTyping.size() < 2) {
+        _isAllCapsLockActive = false;
+    } else if (vAllCapsAutoEscape && vCheckProgrammingKeywords) {
+        bool firstUpper = (_rawTyping[0] & CAPS_MASK) != 0;
+        bool secondUpper = (_rawTyping[1] & CAPS_MASK) != 0;
+        
+        if (firstUpper && secondUpper) {
+            // Check if the second key is a Telex/VNI mark key
+            Uint16 secondKey = _rawTyping[1] & CHAR_MASK;
+            bool isMarkKey = false;
+            if (vInputType == vTelex) {
+                isMarkKey = (secondKey == KEY_S || secondKey == KEY_F || secondKey == KEY_R || secondKey == KEY_X || secondKey == KEY_J);
+            } else if (vInputType == vVNI) {
+                isMarkKey = (secondKey == KEY_1 || secondKey == KEY_2 || secondKey == KEY_3 || secondKey == KEY_4 || secondKey == KEY_5);
+            }
+            
+            if (isMarkKey) {
+                _isAllCapsLockActive = true;
+            }
+        }
+    }
+    
+    if (_isAllCapsLockActive) {
+        return restoreRawTyping(handleCode, false);
+    }
+
     // 1. Check if the word has any Telex transformations (tone marks or accents)
     bool hasTransform = false;
     for (ii = 0; ii < _index; ii++) {
@@ -1454,6 +1482,11 @@ bool applyFsmRestorations(const int& handleCode) {
 
     // 2.5. Check if it is a protected English word first
     if (vUseEnglishDictionary && isProtectedEnglishWord(rawWord)) {
+        return restoreRawTyping(handleCode, false);
+    }
+
+    // 2.6. Check if it is a prefix of a protected English word to defer Vietnamese marks
+    if (vUseEnglishDictionary && hasProtectedEnglishPrefix(rawWord)) {
         return restoreRawTyping(handleCode, false);
     }
 
@@ -1604,7 +1637,7 @@ void vKeyHandleEvent(const vKeyEvent& event,
         hExt = 1; //word break
         
         //check macro feature
-        if (vUseMacro && isMacroBreakCode(data) && !_hasHandledMacro && findMacro(hMacroKey, hMacroData)) {
+        if (vUseMacro && isMacroBreakCode(data) && !_hasHandledMacro && hMacroKey.size() == _rawTyping.size() && findMacro(hMacroKey, hMacroData)) {
             hCode = vReplaceMaro;
             hBPC = (Byte)hMacroKey.size();
             _hasHandledMacro = true;
@@ -1618,6 +1651,20 @@ void vKeyHandleEvent(const vKeyEvent& event,
                 // Restored successfully!
             } else if (tempDisableKey) {
                 hCode = vDoNothing;
+            }
+            if (vLateAccentTransformation == 1 && !tempDisableKey && hCode == vDoNothing && !_hasHandledMacro) {
+                if (_index > 0) {
+                    hCode = vWillProcess;
+                    hBPC = (Byte)_rawTyping.size();
+                    Uint32 triggerChar = keyCodeToCharacter(data);
+                    hNCC = 0;
+                    if (triggerChar != 0) {
+                        hData[hNCC++] = triggerChar | PURE_CHARACTER_MASK;
+                    }
+                    for (i = 0; i < _index; i++) {
+                        hData[hNCC++] = GET(TypingWord[_index - 1 - i]);
+                    }
+                }
             }
         }
         
@@ -1671,7 +1718,7 @@ void vKeyHandleEvent(const vKeyEvent& event,
         if (vCheckSpelling) {
             checkSpelling(true); //force check spelling (always, so stale tempDisableKey from mid-word is refreshed)
         }
-        if (vUseMacro && !_hasHandledMacro && findMacro(hMacroKey, hMacroData)) { //macro
+        if (vUseMacro && !_hasHandledMacro && hMacroKey.size() == _rawTyping.size() && findMacro(hMacroKey, hMacroData)) { //macro
             hCode = vReplaceMaro;
             hBPC = (Byte)hMacroKey.size();
             _spaceCount++;
@@ -1683,6 +1730,20 @@ void vKeyHandleEvent(const vKeyEvent& event,
                 // Restored successfully!
             } else if (tempDisableKey) {
                 hCode = vDoNothing;
+            }
+            if (vLateAccentTransformation == 1 && !tempDisableKey && hCode == vDoNothing) {
+                if (_index > 0) {
+                    hCode = vWillProcess;
+                    hBPC = (Byte)_rawTyping.size();
+                    Uint32 triggerChar = keyCodeToCharacter(data);
+                    hNCC = 0;
+                    if (triggerChar != 0) {
+                        hData[hNCC++] = triggerChar | PURE_CHARACTER_MASK;
+                    }
+                    for (i = 0; i < _index; i++) {
+                        hData[hNCC++] = GET(TypingWord[_index - 1 - i]);
+                    }
+                }
             }
             _spaceCount++;
         } else { //do nothing with SPACE KEY
@@ -1721,6 +1782,9 @@ void vKeyHandleEvent(const vKeyEvent& event,
         } else {
             if (!_rawTyping.empty()) {
                 _rawTyping.pop_back();
+            }
+            if (_rawTyping.size() < 2) {
+                _isAllCapsLockActive = false;
             }
             if (_stateIndex > 0) {
                 _stateIndex--;
@@ -1773,6 +1837,32 @@ void vKeyHandleEvent(const vKeyEvent& event,
         }
 
         _rawTyping.push_back(data | (_isCaps ? CAPS_MASK : 0));
+        
+        if (_rawTyping.size() < 2) {
+            _isAllCapsLockActive = false;
+        } else if (!_isAllCapsLockActive && vAllCapsAutoEscape && vCheckProgrammingKeywords) {
+            bool firstUpper = (_rawTyping[0] & CAPS_MASK) != 0;
+            bool secondUpper = (_rawTyping[1] & CAPS_MASK) != 0;
+            
+            if (firstUpper && secondUpper) {
+                Uint16 secondKey = data & CHAR_MASK;
+                bool isMarkKey = false;
+                if (vInputType == vTelex) {
+                    isMarkKey = (secondKey == KEY_S || secondKey == KEY_F || secondKey == KEY_R || secondKey == KEY_X || secondKey == KEY_J);
+                } else if (vInputType == vVNI) {
+                    isMarkKey = (secondKey == KEY_1 || secondKey == KEY_2 || secondKey == KEY_3 || secondKey == KEY_4 || secondKey == KEY_5);
+                }
+                
+                if (isMarkKey) {
+                    _isAllCapsLockActive = true;
+                }
+            }
+        }
+        
+        if (_isAllCapsLockActive) {
+            tempDisableKey = true;
+        }
+
         insertState(data, _isCaps); //save state
         
         bool autoDisableVietnamese = false;
@@ -1867,6 +1957,11 @@ void vKeyHandleEvent(const vKeyEvent& event,
             _stateIndex = 0;
             hExt = 3;
             _specialChar.push_back(data | (_isCaps ? CAPS_MASK : 0));
+        }
+        if (vLateAccentTransformation == 1) {
+            hCode = vDoNothing;
+            hBPC = 0;
+            hNCC = 0;
         }
     }
     

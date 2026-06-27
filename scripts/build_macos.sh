@@ -65,19 +65,15 @@ cd "$TAURI_DIR"
 npm ci
 npm run check
 
-BUNDLES="app"
-TARGET_FLAG=""
-TARGET_DIR="release"
-ARCH="aarch64"
-if [ "$(uname -m)" = "x86_64" ]; then
-    ARCH="x64"
-fi
+# Always build a universal binary (arm64 + x86_64) so the same .app runs on
+# both Apple Silicon and Intel Macs.
+TARGET_FLAG="--target universal-apple-darwin"
+TARGET_DIR="universal-apple-darwin/release"
+ARCH="universal"
 
+BUNDLES="app"
 if [ "$ACTION" = "build-installer" ]; then
     BUNDLES="app,dmg"
-    TARGET_FLAG="--target universal-apple-darwin"
-    TARGET_DIR="universal-apple-darwin/release"
-    ARCH="universal"
 fi
 
 rm -rf "$TAURI_DIR/src-tauri/target/$TARGET_DIR/bundle/macos/VNKey.app"

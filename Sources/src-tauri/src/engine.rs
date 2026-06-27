@@ -33,6 +33,9 @@ extern "C" {
     pub static mut vFixChromiumBrowser: c_int;
     pub static mut vPerformLayoutCompat: c_int;
     pub static mut vCheckProgrammingKeywords: c_int;
+    pub static mut vLateAccentTransformation: c_int;
+    pub static mut vAllCapsAutoEscape: c_int;
+    pub static mut vUsePasteWorkaround: c_int;
     pub static mut vTelexWAsU: c_int;
     pub static mut vTelexBracketAsO: c_int;
 
@@ -116,10 +119,14 @@ extern "C" {
     #[allow(dead_code)]
     pub fn macos_configure_clipboard_window(ns_window_ptr: *mut c_void, pin_on_top: bool);
     #[cfg(target_os = "macos")]
+    pub fn macos_configure_hud_window(ns_window_ptr: *mut c_void);
+    #[cfg(target_os = "macos")]
     pub fn macos_get_frontmost_app_pid() -> c_int;
     #[cfg(target_os = "macos")]
-    pub fn macos_set_clipboard_hotkey(val: c_int);
+    pub fn macos_get_mouse_position(x: *mut f64, y: *mut f64);
     #[cfg(target_os = "macos")]
+    pub fn macos_set_clipboard_hotkey(val: c_int);
+    pub fn macos_set_panel_hotkey(val: c_int);
     pub fn macos_set_clipboard_enabled(enabled: bool);
 
     #[cfg(target_os = "macos")]
@@ -359,6 +366,11 @@ pub fn macos_set_clipboard_hotkey_val(val: i32) {
 }
 
 #[cfg(target_os = "macos")]
+pub fn macos_set_panel_hotkey_val(val: i32) {
+    unsafe { macos_set_panel_hotkey(val) }
+}
+
+#[cfg(target_os = "macos")]
 pub fn macos_set_clipboard_enabled_val(enabled: bool) {
     unsafe { macos_set_clipboard_enabled(enabled) }
 }
@@ -393,6 +405,20 @@ pub fn get_application_info_by_bundle_id_json(bundle_id: &str) -> Option<String>
 pub fn get_application_info_by_name_json(name: &str) -> Option<String> {
     let name_c = std::ffi::CString::new(name).ok()?;
     unsafe { take_string(macos_get_application_info_by_name_json(name_c.as_ptr())) }
+}
+
+pub fn get_mouse_position() -> (f64, f64) {
+    #[cfg(target_os = "macos")]
+    {
+        let mut x = 0.0;
+        let mut y = 0.0;
+        unsafe {
+            macos_get_mouse_position(&mut x, &mut y);
+        }
+        (x, y)
+    }
+    #[cfg(not(target_os = "macos"))]
+    (0.0, 0.0)
 }
 
 #[cfg(test)]

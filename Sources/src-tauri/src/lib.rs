@@ -35,7 +35,15 @@ static CLIPBOARD_AUTO_HIDE: std::sync::atomic::AtomicBool =
 static CLIPBOARD_MAX_ITEMS: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(10);
 static CLIPBOARD_HOTKEY: std::sync::atomic::AtomicI32 =
     std::sync::atomic::AtomicI32::new(0x56000C09); // Default: Command + Shift + V
+static PANEL_HOTKEY: std::sync::atomic::AtomicI32 =
+    std::sync::atomic::AtomicI32::new(0x50000C23); // Default: Command + Shift + P
 static LAST_CHANGE_COUNT: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+pub static IS_INTERNAL_COPY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub static USE_HUD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+extern "C" {
+    fn macos_get_mouse_position(x: *mut f64, y: *mut f64);
+}
 
 fn default_switch_key() -> i32 {
     #[cfg(target_os = "macos")]
@@ -95,6 +103,11 @@ fn default_settings() -> Settings {
         telex_bracket_as_o: 0,
         autostart: 1,
         open_panel_on_start: 1,
+        panel_hotkey: 0x50000C23,
+        late_accent_transformation: 0,
+        all_caps_auto_escape: 1,
+        use_paste_workaround: 1,
+        use_hud: 1,
     }
 }
 
@@ -150,10 +163,21 @@ pub struct Settings {
     pub autostart: i32,
     #[serde(default = "default_one")]
     pub open_panel_on_start: i32,
+    #[serde(default = "default_zero")]
+    pub late_accent_transformation: i32,
+    #[serde(default = "default_panel_hotkey")]
+    pub panel_hotkey: i32,
+    #[serde(default = "default_one")]
+    pub all_caps_auto_escape: i32,
+    #[serde(default = "default_one")]
+    pub use_paste_workaround: i32,
+    #[serde(default = "default_one")]
+    pub use_hud: i32,
 }
 
 fn default_one() -> i32 { 1 }
 fn default_zero() -> i32 { 0 }
+fn default_panel_hotkey() -> i32 { 0x50000C23 }
 
 fn default_fsm_priority_order() -> Vec<i32> {
     vec![0, 2, 1]
@@ -523,6 +547,11 @@ fn get_settings() -> Settings {
             } else {
                 0
             },
+            late_accent_transformation: engine::vLateAccentTransformation,
+            panel_hotkey: PANEL_HOTKEY.load(std::sync::atomic::Ordering::Relaxed),
+            all_caps_auto_escape: engine::vAllCapsAutoEscape,
+            use_paste_workaround: engine::vUsePasteWorkaround,
+            use_hud: if USE_HUD.load(std::sync::atomic::Ordering::Relaxed) { 1 } else { 0 },
         }
     }
 }
@@ -563,6 +592,10 @@ fn load_settings_from_disk(handle: &tauri::AppHandle) {
                         engine::vQuickTelex = settings.quick_telex;
                         engine::vUseEnglishDictionary = settings.use_english_dictionary;
                         engine::vCheckProgrammingKeywords = settings.check_programming_keywords;
+                        engine::vLateAccentTransformation = settings.late_accent_transformation;
+                        engine::vAllCapsAutoEscape = settings.all_caps_auto_escape;
+                        engine::vUsePasteWorkaround = settings.use_paste_workaround;
+                        USE_HUD.store(settings.use_hud == 1, std::sync::atomic::Ordering::Relaxed);
                         engine::vTelexWAsU = settings.telex_w_as_u;
                         engine::vTelexBracketAsO = settings.telex_bracket_as_o;
                         let order = &settings.fsm_priority_order;
@@ -598,6 +631,13 @@ fn load_settings_from_disk(handle: &tauri::AppHandle) {
                         engine::set_convert_tool_remove_mark(settings.convert_tool_remove_mark);
                         engine::set_convert_tool_from_code(settings.convert_tool_from_code);
                         engine::set_convert_tool_to_code(settings.convert_tool_to_code);
+                        PANEL_HOTKEY.store(settings.panel_hotkey, std::sync::atomic::Ordering::Relaxed);
+                        #[cfg(target_os = "macos")]
+                        {
+                            if settings.panel_hotkey != 0 {
+                                engine::macos_set_panel_hotkey_val(settings.panel_hotkey);
+                            }
+                        }
                         engine::set_convert_tool_hotkey(settings.convert_tool_hotkey);
                         engine::startNewSession();
                     }
@@ -688,6 +728,10 @@ fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
         engine::vQuickTelex = settings.quick_telex;
         engine::vUseEnglishDictionary = settings.use_english_dictionary;
         engine::vCheckProgrammingKeywords = settings.check_programming_keywords;
+        engine::vLateAccentTransformation = settings.late_accent_transformation;
+        engine::vAllCapsAutoEscape = settings.all_caps_auto_escape;
+        engine::vUsePasteWorkaround = settings.use_paste_workaround;
+        USE_HUD.store(settings.use_hud == 1, std::sync::atomic::Ordering::Relaxed);
         engine::vTelexWAsU = settings.telex_w_as_u;
         engine::vTelexBracketAsO = settings.telex_bracket_as_o;
         let order = &settings.fsm_priority_order;
@@ -758,6 +802,10 @@ fn update_settings(mut settings: Settings, handle: tauri::AppHandle) {
         engine::macos_set_clipboard_enabled_val(settings.clipboard_enabled == 1);
         if settings.clipboard_hotkey != 0 {
             engine::macos_set_clipboard_hotkey_val(settings.clipboard_hotkey);
+        }
+        PANEL_HOTKEY.store(settings.panel_hotkey, std::sync::atomic::Ordering::Relaxed);
+        if settings.panel_hotkey != 0 {
+            engine::macos_set_panel_hotkey_val(settings.panel_hotkey);
         }
     }
     if previous_code_table != settings.code_table {
@@ -1347,10 +1395,25 @@ fn build_tray_menu<R: tauri::Runtime>(handle: &tauri::AppHandle<R>) -> Menu<R> {
         }
     };
 
-    let control_panel = MenuItemBuilder::new("Bảng điều khiển...")
-        .id("control_panel")
-        .build(handle)
-        .unwrap();
+    let panel_hotkey = PANEL_HOTKEY.load(std::sync::atomic::Ordering::Relaxed);
+    let panel_hotkey_accel = hotkey_to_accelerator(panel_hotkey);
+    let mut control_panel_builder = MenuItemBuilder::new("Bảng điều khiển...").id("control_panel");
+    if let Some(ref accel) = panel_hotkey_accel {
+        control_panel_builder = control_panel_builder.accelerator(accel);
+    }
+    let control_panel = match control_panel_builder.build(handle) {
+        Ok(item) => item,
+        Err(e) => {
+            eprintln!(
+                "Failed to build control_panel menu item with accelerator: {:?}",
+                e
+            );
+            MenuItemBuilder::new("Bảng điều khiển...")
+                .id("control_panel")
+                .build(handle)
+                .unwrap()
+        }
+    };
 
     let macro_settings = MenuItemBuilder::new("Gõ tắt...")
         .id("macro_settings")
@@ -1445,6 +1508,40 @@ fn notify_frontend() {
     }
 }
 
+fn trigger_hud(handle: &tauri::AppHandle, val: i32) {
+    if !USE_HUD.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
+    if let Some(hud) = handle.get_webview_window("hud") {
+        let mut x: f64 = 0.0;
+        let mut y: f64 = 0.0;
+        unsafe {
+            macos_get_mouse_position(&mut x, &mut y);
+        }
+        eprintln!("[HUD] trigger val={val} mouse=({x:.0},{y:.0})");
+
+        let _ = hud.set_position(tauri::Position::Logical(tauri::LogicalPosition {
+            x: x + 20.0,
+            y: y + 20.0,
+        }));
+        let _ = hud.set_always_on_top(true);
+        let _ = hud.show();
+
+        let mode = if val == 1 { "VI" } else { "EN" };
+        let hud_clone = hud.clone();
+        let mode_str = mode.to_string();
+        tauri::async_runtime::spawn(async move {
+            // Small delay to allow webview to render before emitting
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+            let _ = hud_clone.emit("hud-update", mode_str);
+            tokio::time::sleep(tokio::time::Duration::from_millis(1600)).await;
+            let _ = hud_clone.hide();
+        });
+    } else {
+        eprintln!("[HUD] window not found!");
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn rust_onInputMethodChanged(val: std::os::raw::c_int) {
     unsafe {
@@ -1452,6 +1549,7 @@ pub extern "C" fn rust_onInputMethodChanged(val: std::os::raw::c_int) {
     }
     if let Some(handle) = APP_HANDLE.get() {
         update_tray_icon(handle);
+        trigger_hud(handle, val);
     }
     notify_frontend();
 }
@@ -1472,6 +1570,28 @@ pub extern "C" fn rust_onQuickConvert() {
     let success = unsafe { engine::do_quick_convert() };
     if let Some(handle) = APP_HANDLE.get() {
         let _ = handle.emit("quick-convert-result", success);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_onToggleControlPanel() {
+    if let Some(handle) = APP_HANDLE.get() {
+        let _ = handle.run_on_main_thread(move || {
+            toggle_control_panel(handle);
+        });
+    }
+}
+
+fn toggle_control_panel(handle: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(window) = handle.get_webview_window("main") {
+            if window.is_visible().unwrap_or(false) {
+                let _ = window.hide();
+            } else {
+                let _ = window.show().and_then(|_| window.set_focus());
+            }
+        }
     }
 }
 
@@ -2201,6 +2321,9 @@ pub fn run() {
                     let last_count = LAST_CHANGE_COUNT.load(std::sync::atomic::Ordering::Relaxed);
                     if change_count != last_count {
                         LAST_CHANGE_COUNT.store(change_count, std::sync::atomic::Ordering::Relaxed);
+                        if IS_INTERNAL_COPY.load(std::sync::atomic::Ordering::Relaxed) {
+                            continue;
+                        }
 
                         if engine::clipboard_is_sensitive() {
                             continue;
@@ -2226,6 +2349,20 @@ pub fn run() {
                 if OPEN_PANEL_ON_START.load(std::sync::atomic::Ordering::Relaxed) {
                     if let Some(main_win) = handle.get_webview_window("main") {
                         let _ = main_win.show();
+                    }
+                }
+                if let Some(hud) = handle.get_webview_window("hud") {
+                    let _ = hud.set_ignore_cursor_events(true);
+                    // Configure HUD window via native macOS API
+                    #[cfg(target_os = "macos")]
+                    {
+                        use tauri::WebviewWindowBuilder;
+                        let hud_for_ns = hud.clone();
+                        let _ = hud.run_on_main_thread(move || {
+                            if let Ok(ns_win) = hud_for_ns.ns_window() {
+                                unsafe { engine::macos_configure_hud_window(ns_win); }
+                            }
+                        });
                     }
                 }
             } else {
@@ -2367,4 +2504,9 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[no_mangle]
+pub extern "C" fn set_is_internal_copy(val: bool) {
+    IS_INTERNAL_COPY.store(val, std::sync::atomic::Ordering::Relaxed);
 }

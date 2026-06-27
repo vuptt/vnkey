@@ -25,6 +25,64 @@ namespace {
 // and are vulnerable to Telex transformations belong here.
 
 
+struct TrieNode {
+  bool isWord = false;
+  TrieNode* children[26] = {nullptr};
+  
+  ~TrieNode() {
+    for (int i = 0; i < 26; ++i) {
+      delete children[i];
+    }
+  }
+};
+
+class Trie {
+public:
+  TrieNode* root;
+  Trie() {
+    root = new TrieNode();
+  }
+  ~Trie() {
+    delete root;
+  }
+  
+  void insert(const std::string& word) {
+    TrieNode* curr = root;
+    for (char c : word) {
+      int idx = c - 'a';
+      if (idx < 0 || idx >= 26) return;
+      if (!curr->children[idx]) {
+        curr->children[idx] = new TrieNode();
+      }
+      curr = curr->children[idx];
+    }
+    curr->isWord = true;
+  }
+  
+  bool search(const std::string& word) const {
+    TrieNode* curr = root;
+    for (char c : word) {
+      int idx = c - 'a';
+      if (idx < 0 || idx >= 26) return false;
+      if (!curr->children[idx]) return false;
+      curr = curr->children[idx];
+    }
+    return curr->isWord;
+  }
+  
+  bool startsWith(const std::string& prefix) const {
+    if (prefix.empty()) return false;
+    TrieNode* curr = root;
+    for (char c : prefix) {
+      int idx = c - 'a';
+      if (idx < 0 || idx >= 26) return false;
+      if (!curr->children[idx]) return false;
+      curr = curr->children[idx];
+    }
+    return true;
+  }
+};
+
 std::string lowerAscii(const std::string &word) {
   std::string normalized;
   normalized.reserve(word.size());
@@ -37,20 +95,18 @@ std::string lowerAscii(const std::string &word) {
   return normalized;
 }
 
-using EnglishWordSet = std::unordered_set<std::string>;
-
-std::shared_ptr<const EnglishWordSet> gCustomEnglishWords = []() {
-  auto customWords = std::make_shared<EnglishWordSet>();
+std::shared_ptr<const Trie> gCustomEnglishWords = []() {
+  auto customTrie = std::make_shared<Trie>();
   std::stringstream ss(getDefaultEnglishWords());
   std::string word;
   while (ss >> word) {
     if (word.empty()) continue;
     std::string normalized = lowerAscii(word);
     if (!normalized.empty()) {
-      customWords->insert(normalized);
+      customTrie->insert(normalized);
     }
   }
-  return customWords;
+  return customTrie;
 }();
 
 } // namespace
@@ -60,12 +116,21 @@ bool isProtectedEnglishWord(const std::string &word) {
   if (normalized.empty()) {
     return false;
   }
-  const auto customWords = std::atomic_load(&gCustomEnglishWords);
-  return customWords->count(normalized) > 0;
+  const auto customTrie = std::atomic_load(&gCustomEnglishWords);
+  return customTrie->search(normalized);
+}
+
+bool hasProtectedEnglishPrefix(const std::string& prefix) {
+  const std::string normalized = lowerAscii(prefix);
+  if (normalized.empty()) {
+    return false;
+  }
+  const auto customTrie = std::atomic_load(&gCustomEnglishWords);
+  return customTrie->startsWith(normalized);
 }
 
 void setCustomEnglishWords(const std::string& content) {
-  auto customWords = std::make_shared<EnglishWordSet>();
+  auto customTrie = std::make_shared<Trie>();
   std::stringstream ss(content);
   std::string word;
   while (ss >> word) {
@@ -77,12 +142,12 @@ void setCustomEnglishWords(const std::string& content) {
     }
     std::string normalized = lowerAscii(word);
     if (!normalized.empty()) {
-      customWords->insert(normalized);
+      customTrie->insert(normalized);
     }
   }
   std::atomic_store(
       &gCustomEnglishWords,
-      std::static_pointer_cast<const EnglishWordSet>(customWords));
+      std::static_pointer_cast<const Trie>(customTrie));
 }
 
 

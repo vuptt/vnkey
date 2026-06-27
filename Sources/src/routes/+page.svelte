@@ -58,6 +58,11 @@
     telex_bracket_as_o: number;
     autostart: number;
     open_panel_on_start: number;
+    panel_hotkey: number;
+    late_accent_transformation: number;
+    all_caps_auto_escape: number;
+    use_paste_workaround: number;
+    use_hud: number;
   }
 
   let settings = $state<Settings>({
@@ -105,7 +110,12 @@
     telex_w_as_u: 0,
     telex_bracket_as_o: 0,
     autostart: 1,
-    open_panel_on_start: 0,
+    open_panel_on_start: 1,
+    panel_hotkey: 0x50000C23,
+    late_accent_transformation: 0,
+    all_caps_auto_escape: 1,
+    use_paste_workaround: 1,
+    use_hud: 1,
   });
 
   let activeTab = $state(0);
@@ -242,6 +252,7 @@
   let isRecordingSwitchKey = $state(false);
   let isRecordingConvertHotkey = $state(false);
   let isRecordingClipboardHotkey = $state(false);
+  let isRecordingPanelHotkey = $state(false);
 
   // App-specific settings state
   let appConfigs = $state<Record<string, any>>({});
@@ -350,6 +361,7 @@
   let switchKeyInfo = $derived(unpackHotkey(settings.switch_key_status));
   let convertHotkeyInfo = $derived(unpackHotkey(settings.convert_tool_hotkey));
   let clipboardHotkeyInfo = $derived(unpackHotkey(settings.clipboard_hotkey));
+  let panelHotkeyInfo = $derived(unpackHotkey(settings.panel_hotkey));
 
   function formatHotkeyString(info: ReturnType<typeof unpackHotkey>) {
     let parts = [];
@@ -874,7 +886,16 @@
     }
   }
 
-  function handleHotkeyKeyDown(event: KeyboardEvent, type: 'switch' | 'convert' | 'clipboard') {
+  async function setRecordingPanelHotkey(val: boolean) {
+    isRecordingPanelHotkey = val;
+    try {
+      await invoke("disable_hotkeys", { disable: val });
+    } catch (e) {
+      console.error("Failed to set disable_hotkeys:", e);
+    }
+  }
+
+  function handleHotkeyKeyDown(event: KeyboardEvent, type: 'switch' | 'convert' | 'clipboard' | 'panel') {
     event.preventDefault();
     event.stopPropagation();
     
@@ -947,6 +968,18 @@
       });
       setRecordingClipboardHotkey(false);
       saveSettings();
+    } else if (type === 'panel') {
+      settings.panel_hotkey = packHotkey({
+        keyCode: macCode,
+        ctrl,
+        option,
+        command,
+        shift,
+        beep: false,
+        charStr: charStr
+      });
+      setRecordingPanelHotkey(false);
+      saveSettings();
     }
   }
 
@@ -957,7 +990,7 @@
     }, 10);
   }
 
-  function toggleModifier(type: 'switch' | 'convert' | 'clipboard', modifier: 'ctrl' | 'option' | 'command' | 'shift' | 'beep') {
+  function toggleModifier(type: 'switch' | 'convert' | 'clipboard' | 'panel', modifier: 'ctrl' | 'option' | 'command' | 'shift' | 'beep') {
     if (type === 'switch') {
       const current = unpackHotkey(settings.switch_key_status);
       if (modifier === 'beep') {
@@ -982,6 +1015,14 @@
         current[modifier] = !current[modifier];
       }
       settings.clipboard_hotkey = packHotkey(current);
+    } else if (type === 'panel') {
+      const current = unpackHotkey(settings.panel_hotkey);
+      if (modifier === 'beep') {
+        current.beep = !current.beep;
+      } else {
+        current[modifier] = !current[modifier];
+      }
+      settings.panel_hotkey = packHotkey(current);
     }
     saveSettings();
   }
@@ -1480,6 +1521,22 @@
                 <span class="toggle-text">Viết hoa chữ cái đầu tiên của câu</span>
                 <div class="switch">
                   <input type="checkbox" checked={settings.upper_case_first_char === 1} onchange={(e) => handleCheckboxChange('upper_case_first_char', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-container">
+                <span class="toggle-text">Chỉ bỏ dấu khi kết thúc từ <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Chỉ bỏ dấu khi kết thúc từ:</strong><br/>Hoãn việc bỏ dấu tiếng Việt trong quá trình gõ thô. Khi bạn gõ xong từ và nhấn phím cách (Space) hoặc phím ngắt từ, bộ gõ mới tự động bỏ dấu toàn bộ từ cùng một lúc. Giúp tránh xung đột dấu khi gõ xen kẽ từ ngoại ngữ."}>?</span></span>
+                <div class="switch">
+                  <input type="checkbox" checked={settings.late_accent_transformation === 1} onchange={(e) => handleCheckboxChange('late_accent_transformation', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-container">
+                <span class="toggle-text">Khóa Caps thông minh <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Khóa Caps thông minh:</strong><br/>Tự động phát hiện khi bạn gõ 2 chữ viết hoa liên tiếp ở đầu từ (như <kbd>DA...</kbd> trong <kbd>DATABASE_URL</kbd>) để giữ nguyên chế độ gõ chữ thô tiếng Anh, tránh bị dính dấu tiếng Việt."}>?</span></span>
+                <div class="switch">
+                  <input type="checkbox" checked={settings.all_caps_auto_escape === 1} onchange={(e) => handleCheckboxChange('all_caps_auto_escape', (e.target as HTMLInputElement).checked)} />
                   <span class="slider"></span>
                 </div>
               </label>
@@ -2216,6 +2273,49 @@
                   <span class="slider"></span>
                 </div>
               </label>
+
+              <label class="toggle-container">
+                <span class="toggle-text">Sử dụng cơ chế dán từ giảm độ trễ trong Trình duyệt <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Cơ chế dán giảm trễ:</strong><br/>Khi gõ trong các trình duyệt (Chrome, Safari, Firefox,...), bộ gõ sẽ gửi các từ đã sửa dấu qua bộ nhớ đệm (Paste) thay vì gửi từng phím xóa và ký tự đơn lẻ. Giúp tăng tốc độ phản hồi và triệt tiêu giật lag trên các trang web nặng như Gemini, Claude, Facebook."}>?</span></span>
+                <div class="switch">
+                  <input type="checkbox" checked={settings.use_paste_workaround === 1} onchange={(e) => handleCheckboxChange('use_paste_workaround', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="toggle-container">
+                <span class="toggle-text">Hiển thị bảng trạng thái nổi (HUD) khi đổi chế độ gõ <span class="help-tooltip" role="img" aria-label="Thông tin" use:tooltip={"<strong>Bảng trạng thái nổi (HUD):</strong><br/>Hiển thị cửa sổ chỉ báo nhỏ <kbd>VI</kbd> hoặc <kbd>EN</kbd> xuất hiện sát con trỏ chuột mỗi khi bạn chuyển đổi chế độ gõ (bằng phím tắt hoặc chuyển ứng dụng). Cửa sổ sẽ tự mờ dần sau 1.5 giây và không cản trở các thao tác gõ hay nhấn chuột của bạn."}>?</span></span>
+                <div class="switch">
+                  <input type="checkbox" checked={settings.use_hud === 1} onchange={(e) => handleCheckboxChange('use_hud', (e.target as HTMLInputElement).checked)} />
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Hotkey Panel Config Card -->
+          <div class="card mt-20">
+            <h3>Phím tắt mở bảng điều khiển</h3>
+            <div class="hotkey-section">
+              <div class="hotkey-recorder-container">
+                {#if isRecordingPanelHotkey}
+                  <button 
+                    use:autofocusAction
+                    class="btn btn-primary recording-btn pulse w-full"
+                    onkeydown={(e) => handleHotkeyKeyDown(e, 'panel')}
+                    onblur={() => setRecordingPanelHotkey(false)}
+                  >
+                    Nhập phím tắt...
+                  </button>
+                {:else}
+                  <button 
+                    class="btn btn-secondary hotkey-btn w-full" 
+                    onclick={() => setRecordingPanelHotkey(true)}
+                    title="Click và nhấn tổ hợp phím để đặt phím tắt"
+                  >
+                    {@html formatHotkeyString(panelHotkeyInfo)}
+                  </button>
+                {/if}
+              </div>
             </div>
           </div>
 

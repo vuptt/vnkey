@@ -24,6 +24,9 @@ extern "C" {
     int vQuickTelex = 0;
     int vUseEnglishDictionary = 1;
     int vCheckProgrammingKeywords = 1;
+    int vLateAccentTransformation = 0;
+    int vAllCapsAutoEscape = 1;
+    int vUsePasteWorkaround = 1;
     int vUseMacro = 1;
     int vUseMacroInEnglishMode = 0;
     int vAutoCapsMacro = 1;

@@ -50,6 +50,18 @@
         "alwaysOnTop": false,
         "visible": false,
         "url": "/onboarding"
+      },
+      {
+        "label": "hud",
+        "title": "VNKey HUD",
+        "width": 140,
+        "height": 56,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "url": "/hud"
       }
     ],
     "security": {

@@ -10,11 +10,14 @@
 #import <Foundation/Foundation.h>
 #import <QuickLook/QuickLook.h>
 #import "Engine.h"
+#include <unistd.h>
 extern "C" {
     void rust_onInputMethodChanged(int val);
     void rust_onCodeTableChanged(int val);
     void rust_onQuickConvert();
     void rust_onToggleClipboardPicker();
+    void rust_onToggleControlPanel();
+    void set_is_internal_copy(bool val);
 }
 
 #define FRONT_APP _frontMostApp
@@ -47,6 +50,7 @@ NSDictionary *keyStringToKeyCodeMap = @{
 };
 
 int clipboardHotKey = 0x76000109; // Default: Ctrl + V
+int panelHotKey = 0x50000C23;     // Default: Cmd + Shift + P
 bool clipboardHistoryEnabled = true;
 
 static CFMachPortRef      eventTap = NULL;
@@ -62,6 +66,9 @@ extern "C" {
     extern int vPerformLayoutCompat;
     extern int vDisableHotkeys;
     extern int vFixSpotlight;
+    extern int vUsePasteWorkaround;
+    
+    bool _usePasteInsteadOfEvent = false;
 
     CGEventSourceRef myEventSource = NULL;
     vKeyHookState* pData;
@@ -350,6 +357,37 @@ extern "C" {
         vSetCheckSpelling();
     }
     
+    void PasteText(NSString* text) {
+        NSPasteboard *pb = [NSPasteboard generalPasteboard];
+        NSString *oldText = [pb stringForType:NSPasteboardTypeString];
+        
+        set_is_internal_copy(true);
+        [pb declareTypes:@[NSPasteboardTypeString] owner:nil];
+        [pb setString:text forType:NSPasteboardTypeString];
+        
+        CGEventRef cmdVDown = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)9, true);
+        CGEventSetFlags(cmdVDown, kCGEventFlagMaskCommand);
+        CGEventRef cmdVUp = CGEventCreateKeyboardEvent(NULL, (CGKeyCode)9, false);
+        
+        CGEventTapPostEvent(_proxy, cmdVDown);
+        CGEventTapPostEvent(_proxy, cmdVUp);
+        
+        CFRelease(cmdVDown);
+        CFRelease(cmdVUp);
+        
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(100 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+            set_is_internal_copy(true);
+            NSPasteboard *pb_restore = [NSPasteboard generalPasteboard];
+            [pb_restore declareTypes:@[NSPasteboardTypeString] owner:nil];
+            if (oldText != nil) {
+                [pb_restore setString:oldText forType:NSPasteboardTypeString];
+            }
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                set_is_internal_copy(false);
+            });
+        });
+    }
+    
     void InsertKeyLength(const Uint8& len) {
         _syncKey.push_back(len);
     }
@@ -358,6 +396,11 @@ extern "C" {
         if (unicodeEventDown == NULL || unicodeEventUp == NULL ||
             characters == NULL || length == 0) {
             return false;
+        }
+        if (_usePasteInsteadOfEvent) {
+            NSString *str = [NSString stringWithCharacters:characters length:length];
+            PasteText(str);
+            return true;
         }
         CGEventKeyboardSetUnicodeString(unicodeEventDown, length, characters);
         CGEventKeyboardSetUnicodeString(unicodeEventUp, length, characters);
@@ -641,7 +684,11 @@ extern "C" {
         }
         //send real data
         if (!vSendKeyStepByStep) {
+            if (vUsePasteWorkaround && containUnicodeCompoundApp(FRONT_APP)) {
+                _usePasteInsteadOfEvent = true;
+            }
             SendNewCharString(true);
+            _usePasteInsteadOfEvent = false;
         } else {
             for (size_t i = 0; i < pData->macroData.size(); i++) {
                 if (pData->macroData[i] & PURE_CHARACTER_MASK) {
@@ -732,6 +779,13 @@ extern "C" {
                     return NULL;
                 }
 
+                if (GET_SWITCH_KEY(panelHotKey) == _keycode && checkHotKey(panelHotKey, GET_SWITCH_KEY(panelHotKey) != 0xFE)) {
+                    rust_onToggleControlPanel();
+                    _lastFlag = 0;
+                    _hasJustUsedHotKey = true;
+                    return NULL;
+                }
+
                 if (GET_SWITCH_KEY(vSwitchKeyStatus) != _keycode && GET_SWITCH_KEY(convertToolHotKey) != _keycode) {
                     _lastFlag = 0;
                 } else {
@@ -785,6 +839,12 @@ extern "C" {
         
         _proxy = proxy;
         refreshFrontMostAppIfNeeded();
+        
+        // If current system input source is not English, do not process characters and clear buffer
+        if (!_currentInputSourceIsEnglish) {
+            RequestNewSession();
+            return event;
+        }
         
         //If is in english mode
         if (vLanguage == 0) {
@@ -864,12 +924,21 @@ extern "C" {
                 if (pData->backspaceCount > 0 && pData->backspaceCount < MAX_BUFF) {
                     for (_i = 0; _i < pData->backspaceCount; _i++) {
                         SendBackspace();
+                        if (pData->backspaceCount > 1) {
+                            usleep(3000); // Trễ 3ms cho bộ đệm OS
+                        }
                     }
+                    usleep(3000); // Trễ 3ms trước khi chèn chữ mới
                 }
                 
                 //send new character
                 if (!vSendKeyStepByStep) {
+                    if (vUsePasteWorkaround && containUnicodeCompoundApp(FRONT_APP) &&
+                        (pData->code == vRestore || pData->code == vRestoreAndStartNewSession)) {
+                        _usePasteInsteadOfEvent = true;
+                    }
                     SendNewCharString();
+                    _usePasteInsteadOfEvent = false;
                 } else {
                     if (pData->newCharCount > 0 && pData->newCharCount <= MAX_BUFF) {
                         for (int i = pData->newCharCount - 1; i >= 0; i--) {
@@ -877,7 +946,10 @@ extern "C" {
                         }
                     }
                     if (pData->code == vRestore || pData->code == vRestoreAndStartNewSession) {
-                        SendKeyCode(_keycode | ((_flag & kCGEventFlagMaskAlphaShift) || (_flag & kCGEventFlagMaskShift) ? CAPS_MASK : 0));
+                        bool isControlKey = (_keycode == KEY_SPACE || _keycode == KEY_RETURN || _keycode == KEY_ENTER || _keycode == KEY_TAB || _keycode == KEY_ESC || _keycode == KEY_DELETE);
+                        if (isControlKey) {
+                            SendKeyCode(_keycode | ((_flag & kCGEventFlagMaskAlphaShift) || (_flag & kCGEventFlagMaskShift) ? CAPS_MASK : 0));
+                        }
                     }
                     if (pData->code == vRestoreAndStartNewSession) {
                         startNewSession();
@@ -910,6 +982,7 @@ extern "C" {
         (void)userInfo;
         refreshCurrentInputSource();
         rust_onInputMethodChanged(vLanguage);
+        RequestNewSession();
     }
 
     bool start_event_tap() {
@@ -1531,6 +1604,31 @@ extern "C" {
         }
     }
 
+    void macos_configure_hud_window(void* ns_window_ptr) {
+        @autoreleasepool {
+            NSWindow* window = (__bridge NSWindow*)ns_window_ptr;
+            if (!window) return;
+            
+            // Highest window level — floats above all apps including fullscreen
+            window.level = kCGMaximumWindowLevelKey;
+            
+            // Do not steal focus when shown
+            [window setStyleMask:[window styleMask] | NSWindowStyleMaskNonactivatingPanel];
+            [window setIgnoresMouseEvents:YES];
+            
+            // Transparent background (belt & suspenders alongside Tauri transparent=true)
+            [window setBackgroundColor:[NSColor clearColor]];
+            [window setOpaque:NO];
+            
+            // Visible on all Spaces and full-screen apps
+            [window setCollectionBehavior:
+                NSWindowCollectionBehaviorCanJoinAllSpaces |
+                NSWindowCollectionBehaviorStationary |
+                NSWindowCollectionBehaviorIgnoresCycle |
+                NSWindowCollectionBehaviorFullScreenAuxiliary];
+        }
+    }
+
     char* macos_get_frontmost_app_name() {
         @autoreleasepool {
             NSRunningApplication* app = [[NSWorkspace sharedWorkspace] frontmostApplication];
@@ -1551,6 +1649,10 @@ extern "C" {
 
     void macos_set_clipboard_hotkey(int val) {
         clipboardHotKey = val;
+    }
+
+    void macos_set_panel_hotkey(int val) {
+        panelHotKey = val;
     }
 
     void macos_set_clipboard_enabled(bool enabled) {
@@ -1589,6 +1691,16 @@ extern "C" {
     void free_macos_status_icon(const uint8_t* bytes) {
         if (bytes) {
             free((void*)bytes);
+        }
+    }
+
+    void macos_get_mouse_position(double *x, double *y) {
+        @autoreleasepool {
+            NSPoint loc = [NSEvent mouseLocation];
+            NSScreen *primaryScreen = [[NSScreen screens] objectAtIndex:0];
+            double screenHeight = [primaryScreen frame].size.height;
+            *x = loc.x;
+            *y = screenHeight - loc.y;
         }
     }
 }

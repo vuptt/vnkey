@@ -14,6 +14,7 @@
  * intentionally excluded.
  */
 bool isProtectedEnglishWord(const std::string& word);
+bool hasProtectedEnglishPrefix(const std::string& prefix);
 void setCustomEnglishWords(const std::string& content);
 const std::string& getDefaultEnglishWords();
 
